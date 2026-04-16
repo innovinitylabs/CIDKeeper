@@ -15,6 +15,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "CIDKeeper",
   description: "Wallet-based NFT recovery: IPFS CID health checks, exact-byte exports, and optional web3.storage pinning.",
+  icons: {
+    icon: [{ url: "/valipokkann.svg", type: "image/svg+xml" }],
+    shortcut: "/valipokkann.svg",
+  },
 };
 
 export default function RootLayout({

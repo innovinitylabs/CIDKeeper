@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { downloadExactBytes, extensionFromContentType, limitConcurrency5 } from "@/lib/ipfs";
+import { web3StorageTokenFromRequest } from "@/lib/user-provider-keys";
 import { File, Web3Storage } from "web3.storage";
 
 export const runtime = "nodejs";
@@ -12,10 +13,14 @@ const BodySchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const token = process.env.WEB3STORAGE_TOKEN;
+    const token = web3StorageTokenFromRequest(req);
     if (!token) {
       return NextResponse.json(
-        { error: "pin_unavailable", message: "WEB3STORAGE_TOKEN is not configured on the server." },
+        {
+          error: "pin_unavailable",
+          message:
+            "No web3.storage token: add one under Your API keys in this app (stored in your browser) or set WEB3STORAGE_TOKEN on the server.",
+        },
         { status: 501 },
       );
     }

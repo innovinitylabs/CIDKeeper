@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getNftsForOwner } from "@/lib/alchemy";
 import { isEthereumAddress } from "@/lib/address";
+import { alchemyApiKeyFromRequest } from "@/lib/user-provider-keys";
 import { downloadExactBytes, extensionFromContentType, limitConcurrency5 } from "@/lib/ipfs";
 import { extractCidsFromNft, normalizeTokenId, pickPrimaryExport } from "@/lib/nft-cids";
 import { buildExportZip } from "@/lib/zip";
@@ -49,9 +50,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "invalid_wallet" }, { status: 400 });
     }
 
-    const key = process.env.ALCHEMY_API_KEY;
+    const key = alchemyApiKeyFromRequest(req);
     if (!key) {
-      return NextResponse.json({ error: "server_misconfigured" }, { status: 500 });
+      return NextResponse.json(
+        {
+          error: "no_alchemy_key",
+          message:
+            "No Alchemy API key: add one under Your API keys in this app or set ALCHEMY_API_KEY on the server.",
+        },
+        { status: 401 },
+      );
     }
 
     const maxNfts = Math.max(1, Number(process.env.MAX_NFTS_FOR_ZIP ?? 150) || 150);
