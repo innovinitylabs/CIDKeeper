@@ -66,6 +66,34 @@ export default function Home() {
     setProgress(null);
   }, []);
 
+  const runCidAnalysis = useCallback(async (list: NormalizedNft[], options?: { preserveBanner?: boolean }) => {
+    if (!list.length) return;
+    if (!options?.preserveBanner) {
+      setBanner(null);
+    }
+    setPinMessage(null);
+    setPhase("extract");
+    setProgress(null);
+    try {
+      const res = await fetch("/api/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nfts: list }),
+      });
+      const data = await res.json().catch(() => ({}));
+      const nextRows = Array.isArray(data.rows) ? (data.rows as ExtractedNftRow[]) : [];
+      setRows(nextRows);
+      if (data?.error) {
+        setBanner(String(data.message ?? data.error));
+      }
+    } catch {
+      setBanner("Network error during CID analysis.");
+    } finally {
+      setPhase("idle");
+      setProgress(null);
+    }
+  }, []);
+
   const fetchNfts = useCallback(async () => {
     setBanner(null);
     setPinMessage(null);
@@ -87,44 +115,24 @@ export default function Home() {
       }
       const list = Array.isArray(data.nfts) ? (data.nfts as NormalizedNft[]) : [];
       setNfts(list);
-      if (Array.isArray(data.pageErrors) && data.pageErrors.length) {
-        setBanner(`Alchemy returned partial pages: ${data.pageErrors.join("; ")}`);
-      }
       const keys = list.map((n) => nftKey(n));
       setSelectedKeys(new Set(keys));
+      if (list.length > 0) {
+        await runCidAnalysis(list, { preserveBanner: true });
+      }
+      if (Array.isArray(data.pageErrors) && data.pageErrors.length) {
+        const partial = `Alchemy returned partial pages: ${data.pageErrors.join("; ")}`;
+        setBanner((prev) => (prev ? `${prev} ${partial}` : partial));
+      }
     } catch {
       setBanner("Network error while fetching NFTs.");
     } finally {
       setPhase("idle");
       setProgress(null);
     }
-  }, [wallet, nftScope, includeFactoryCollections]);
+  }, [wallet, nftScope, includeFactoryCollections, runCidAnalysis]);
 
-  const analyze = useCallback(async () => {
-    if (!nfts.length) return;
-    setBanner(null);
-    setPinMessage(null);
-    setPhase("extract");
-    setProgress(null);
-    try {
-      const res = await fetch("/api/extract", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nfts }),
-      });
-      const data = await res.json().catch(() => ({}));
-      const nextRows = Array.isArray(data.rows) ? (data.rows as ExtractedNftRow[]) : [];
-      setRows(nextRows);
-      if (data?.error) {
-        setBanner(String(data.message ?? data.error));
-      }
-    } catch {
-      setBanner("Network error during CID analysis.");
-    } finally {
-      setPhase("idle");
-      setProgress(null);
-    }
-  }, [nfts]);
+  const analyze = useCallback(() => runCidAnalysis(nfts), [nfts, runCidAnalysis]);
 
   const downloadZip = useCallback(
     async (mode: "all" | "selected") => {

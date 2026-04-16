@@ -60,3 +60,32 @@ export function gatewayUrlsForCid(cid: string): string[] {
   ];
   return bases.map((b) => `${b}${cid}`);
 }
+
+/**
+ * Build a single https preview URL that preserves path segments after the CID
+ * (e.g. ipfs://Qm…/nft.png or https://ipfs.io/ipfs/Qm…/nft.png).
+ * Browsers cannot load ipfs:// in img src; extractCID() alone drops subpaths.
+ */
+export function ipfsResourceToHttpPreviewUrl(uri: string): string | null {
+  const raw = uri.trim();
+  if (!raw) return null;
+  const lower = raw.toLowerCase();
+
+  if (lower.startsWith("ipfs://")) {
+    let path = raw.slice("ipfs://".length).split("#")[0].split("?")[0];
+    if (path.startsWith("ipfs/")) path = path.slice("ipfs/".length);
+    path = path.replace(/^\/+/, "");
+    if (!path) return null;
+    return `https://ipfs.io/ipfs/${path}`;
+  }
+
+  const idx = lower.indexOf("/ipfs/");
+  if (idx !== -1) {
+    let tail = raw.slice(idx + "/ipfs/".length).split("#")[0].split("?")[0];
+    tail = tail.replace(/^\/+/, "");
+    if (!tail) return null;
+    return `https://ipfs.io/ipfs/${tail}`;
+  }
+
+  return null;
+}

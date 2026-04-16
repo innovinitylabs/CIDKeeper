@@ -170,7 +170,7 @@ export function NFTGrid({ nfts, rows, selectedKeys, onToggle, onToggleAll }: Pro
                       CID analysis row
                     </div>
                     <pre className="overflow-auto rounded-lg border border-zinc-200 bg-white p-3 font-mono text-[11px] text-zinc-800 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200">
-                      {rawRow ?? "Run Analyze CIDs to populate this section."}
+                      {rawRow ?? "CID analysis runs after NFTs load, or use Analyze CIDs to refresh."}
                     </pre>
                   </div>
                 </div>

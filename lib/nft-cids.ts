@@ -1,4 +1,4 @@
-import { extractCID, gatewayUrlsForCid } from "@/lib/cid";
+import { extractCID, gatewayUrlsForCid, ipfsResourceToHttpPreviewUrl } from "@/lib/cid";
 import type { ExportSource, NormalizedNft } from "@/types/nft";
 
 function pickUriString(v: unknown): string | null {
@@ -69,13 +69,23 @@ export function previewUrlForImageCid(imageCID: string | null): string | null {
 }
 
 export function previewUrlFromNft(nft: NormalizedNft, cids: ExtractedCids): string | null {
-  if (cids.imageCID) return previewUrlForImageCid(cids.imageCID);
   const meta = nft.metadata;
   const imageRaw = meta
     ? pickUriString(meta.image) ?? pickUriString(meta.image_url ?? meta.imageUrl)
     : null;
+
+  if (imageRaw) {
+    const ipfsHttp = ipfsResourceToHttpPreviewUrl(imageRaw);
+    if (ipfsHttp) return ipfsHttp;
+  }
+
+  if (cids.imageCID) return previewUrlForImageCid(cids.imageCID);
   if (imageRaw && (imageRaw.startsWith("http://") || imageRaw.startsWith("https://"))) {
     return imageRaw;
+  }
+  if (cids.metadataCID) {
+    const base = gatewayUrlsForCid(cids.metadataCID)[0];
+    if (base) return `${base}/nft.png`;
   }
   return null;
 }

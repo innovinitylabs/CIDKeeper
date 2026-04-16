@@ -69,3 +69,50 @@ test("previewUrlFromNft falls back to image_url when image is missing", () => {
   const cids = extractCidsFromNft(nft);
   assert.equal(previewUrlFromNft(nft, cids), "https://arweave.net/from-image-url");
 });
+
+test("previewUrlFromNft uses metadata CID directory nft.png when metadata has no image", () => {
+  const nft: NormalizedNft = {
+    contractAddress: "0xabc0000000000000000000000000000000000001",
+    tokenId: "5",
+    tokenURI: "ipfs://QmQmuu1XntCzy9esPrvvGbBH1HqjRbCQ6fpuJo8WjBWmFQ",
+    metadata: { name: "WAY4R" },
+    name: "WAY4R",
+  };
+  const cids = extractCidsFromNft(nft);
+  assert.equal(
+    previewUrlFromNft(nft, cids),
+    "https://ipfs.io/ipfs/QmQmuu1XntCzy9esPrvvGbBH1HqjRbCQ6fpuJo8WjBWmFQ/nft.png",
+  );
+});
+
+test("previewUrlFromNft preserves ipfs image path (e.g. nft.png under CID)", () => {
+  const cid = "QmVRESpBNYgn8jT6qUQQ5ABFQ8rmMCJrBnJ72S1S89VkZm";
+  const nft: NormalizedNft = {
+    contractAddress: "0xabc0000000000000000000000000000000000001",
+    tokenId: "6",
+    tokenURI: null,
+    metadata: {
+      image: `ipfs://${cid}/nft.png`,
+    },
+    name: "Token",
+  };
+  const cids = extractCidsFromNft(nft);
+  assert.equal(cids.imageCID, cid);
+  assert.equal(previewUrlFromNft(nft, cids), `https://ipfs.io/ipfs/${cid}/nft.png`);
+});
+
+test("previewUrlFromNft preserves path for https ipfs gateway image urls", () => {
+  const cid = "QmVRESpBNYgn8jT6qUQQ5ABFQ8rmMCJrBnJ72S1S89VkZm";
+  const nft: NormalizedNft = {
+    contractAddress: "0xabc0000000000000000000000000000000000001",
+    tokenId: "7",
+    tokenURI: null,
+    metadata: {
+      image: `https://ipfs.io/ipfs/${cid}/nft.png`,
+    },
+    name: "Token",
+  };
+  const cids = extractCidsFromNft(nft);
+  assert.equal(cids.imageCID, cid);
+  assert.equal(previewUrlFromNft(nft, cids), `https://ipfs.io/ipfs/${cid}/nft.png`);
+});
