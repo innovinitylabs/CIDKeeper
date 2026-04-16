@@ -13,7 +13,7 @@ type Props = {
 };
 
 function badgeClass(health: ExtractedNftRow["health"]) {
-  if (health === "alive") return "bg-emerald-500/15 text-emerald-800 ring-emerald-500/30 dark:text-emerald-200";
+  if (health === "alive") return "bg-brand/15 text-brand-ink ring-brand/25 dark:text-brand-light dark:ring-brand/35";
   if (health === "slow") return "bg-amber-500/15 text-amber-900 ring-amber-500/30 dark:text-amber-100";
   if (health === "arweave") return "bg-sky-500/15 text-sky-900 ring-sky-500/30 dark:text-sky-100";
   return "bg-rose-500/15 text-rose-900 ring-rose-500/30 dark:text-rose-100";
@@ -59,7 +59,7 @@ export function NFTGrid({ nfts, rows, selectedKeys, onToggle, onToggleAll }: Pro
             type="checkbox"
             checked={allSelected}
             onChange={(e) => onToggleAll(keys, e.target.checked)}
-            className="rounded border-zinc-300 text-emerald-700 focus:ring-emerald-600 dark:border-zinc-600"
+            className="rounded border-zinc-300 text-brand focus:ring-brand dark:border-zinc-600"
           />
           Select all
         </label>
@@ -87,7 +87,7 @@ export function NFTGrid({ nfts, rows, selectedKeys, onToggle, onToggleAll }: Pro
                         checked={selectedKeys.has(key)}
                         onChange={() => onToggle(key)}
                         onClick={(e) => e.stopPropagation()}
-                        className="mt-1 rounded border-zinc-300 text-emerald-700 focus:ring-emerald-600 dark:border-zinc-600"
+                        className="mt-1 rounded border-zinc-300 text-brand focus:ring-brand dark:border-zinc-600"
                       />
                       <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900">
                         {previewUrl ? (
@@ -115,7 +115,7 @@ export function NFTGrid({ nfts, rows, selectedKeys, onToggle, onToggleAll }: Pro
                           </button>
                         </div>
                         {copiedValue === nft.contractAddress ? (
-                          <div className="mt-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">Copied</div>
+                          <div className="mt-1 text-[11px] font-medium text-brand dark:text-brand-light">Copied</div>
                         ) : null}
                       </div>
                     </div>
@@ -129,13 +129,13 @@ export function NFTGrid({ nfts, rows, selectedKeys, onToggle, onToggleAll }: Pro
                             e.stopPropagation();
                             copyValue(cid);
                           }}
-                          className="inline break-all text-left transition hover:text-emerald-700 dark:hover:text-emerald-400"
+                          className="inline break-all text-left transition hover:text-brand dark:hover:text-brand-light"
                           title={cid === "—" ? "No CID available" : "Click to copy CID"}
                         >
                           {cid}
                         </button>
                         {copiedValue === cid && cid !== "—" ? (
-                          <span className="ml-2 text-[11px] font-sans font-medium text-emerald-700 dark:text-emerald-400">
+                          <span className="ml-2 text-[11px] font-sans font-medium text-brand dark:text-brand-light">
                             Copied
                           </span>
                         ) : null}

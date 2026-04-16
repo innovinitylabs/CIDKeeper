@@ -404,7 +404,7 @@ export default function Home() {
     <div className="flex min-h-full flex-1 flex-col bg-zinc-50 dark:bg-zinc-950">
       <header className="border-b border-zinc-200 bg-white/80 px-6 py-10 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/80">
         <div className="mx-auto flex max-w-5xl flex-col gap-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-400">CIDKeeper</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand dark:text-brand-light">CIDKeeper</p>
           <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
             Backup and preserve your NFTs before they disappear
           </h1>
@@ -488,7 +488,7 @@ export default function Home() {
                 href="https://dashboard.alchemy.com/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-medium text-emerald-700 underline decoration-emerald-700/30 underline-offset-2 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300"
+                className="font-medium text-brand underline decoration-brand/30 underline-offset-2 hover:text-brand-hover dark:text-brand-light dark:hover:text-white"
               >
                 Open Alchemy dashboard
               </a>
@@ -515,7 +515,7 @@ export default function Home() {
                 <input
                   type="radio"
                   name="nftScope"
-                  className="mt-0.5 text-emerald-700 focus:ring-emerald-600"
+                  className="mt-0.5 text-brand focus:ring-brand"
                   checked={nftScope === "created"}
                   onChange={() => {
                     setNftScope("created");
@@ -538,7 +538,7 @@ export default function Home() {
                   <label className="flex cursor-pointer items-start gap-2 text-zinc-600 dark:text-zinc-400">
                     <input
                       type="checkbox"
-                      className="mt-0.5 text-emerald-700 focus:ring-emerald-600"
+                      className="mt-0.5 text-brand focus:ring-brand"
                       checked={includeFactoryCollections}
                       onChange={(e) => {
                         setIncludeFactoryCollections(e.target.checked);
@@ -614,7 +614,7 @@ export default function Home() {
                 <input
                   type="radio"
                   name="nftScope"
-                  className="mt-0.5 text-emerald-700 focus:ring-emerald-600"
+                  className="mt-0.5 text-brand focus:ring-brand"
                   checked={nftScope === "owned"}
                   onChange={() => {
                     setNftScope("owned");
@@ -639,7 +639,7 @@ export default function Home() {
             </p>
           ) : null}
           {pinMessage ? (
-            <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 font-mono text-xs text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-100">
+            <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap rounded-lg border border-brand/25 bg-brand-soft px-3 py-2 font-mono text-xs text-brand-ink dark:border-brand/35 dark:bg-brand/10 dark:text-brand-light">
               {pinMessage}
             </pre>
           ) : null}
@@ -683,7 +683,7 @@ export default function Home() {
                 type="button"
                 onClick={() => downloadZip("all")}
                 disabled={busy}
-                className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-600 disabled:opacity-50 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+                className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-hover disabled:opacity-50"
               >
                 Download all (ZIP)
               </button>
@@ -699,7 +699,7 @@ export default function Home() {
                 type="button"
                 onClick={pinSelected}
                 disabled={busy}
-                className="rounded-lg border border-emerald-600/40 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-100 disabled:opacity-50 dark:bg-emerald-950/40 dark:text-emerald-100 dark:hover:bg-emerald-900/40"
+                className="rounded-lg border border-brand/35 bg-brand-soft px-4 py-2 text-sm font-semibold text-brand-ink hover:bg-brand/15 disabled:opacity-50 dark:border-brand/40 dark:bg-brand/10 dark:text-brand-light dark:hover:bg-brand/20"
               >
                 Pin selected (web3.storage)
               </button>
@@ -723,7 +723,7 @@ export default function Home() {
                 href="https://valipokkann.in"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-medium text-emerald-700 underline decoration-emerald-700/30 underline-offset-2 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300"
+                className="font-medium text-brand underline decoration-brand/30 underline-offset-2 hover:text-brand-hover dark:text-brand-light dark:hover:text-white"
               >
                 Valipokkann
               </a>
@@ -756,11 +756,21 @@ export default function Home() {
           <button
             type="button"
             onClick={() => setSupportOpen(true)}
-            className="shrink-0 rounded-lg ring-1 ring-zinc-200/80 transition hover:opacity-95 hover:ring-emerald-500/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:ring-zinc-700"
+            className="shrink-0 rounded-lg ring-1 ring-zinc-200/80 transition hover:opacity-95 hover:ring-brand/35 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:ring-zinc-700"
             aria-label="Open support and donation details"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/support_next.png" alt="Support the next artwork" className="h-11 w-auto sm:h-12" />
+            <span className="relative inline-flex overflow-hidden rounded-md">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/support_next.png"
+                alt="Support the next artwork"
+                className="h-8 w-auto brightness-[0.92] contrast-[1.03] sm:h-9"
+              />
+              <span
+                className="pointer-events-none absolute inset-0 rounded-md bg-brand/38 mix-blend-color"
+                aria-hidden
+              />
+            </span>
           </button>
         </div>
       </footer>

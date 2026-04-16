@@ -16,11 +16,11 @@ export function ProgressBar({ label, value }: Props) {
       <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
         {determinate ? (
           <div
-            className="h-full rounded-full bg-emerald-600 transition-[width] duration-300 ease-out dark:bg-emerald-500"
+            className="h-full rounded-full bg-brand transition-[width] duration-300 ease-out"
             style={{ width: `${clamped}%` }}
           />
         ) : (
-          <div className="h-full w-1/3 animate-pulse rounded-full bg-emerald-600/80 dark:bg-emerald-500/80" />
+          <div className="h-full w-1/3 animate-pulse rounded-full bg-brand/80" />
         )}
       </div>
     </div>
