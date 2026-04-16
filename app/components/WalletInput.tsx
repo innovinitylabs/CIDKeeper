@@ -12,11 +12,11 @@ export function WalletInput({ value, onChange, onSubmit, onClear, disabled }: Pr
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
       <label className="flex flex-1 flex-col gap-1.5 text-sm">
-        <span className="font-medium text-zinc-700 dark:text-zinc-200">Wallet address</span>
+        <span className="font-medium text-zinc-700 dark:text-zinc-200">Wallet or ENS</span>
         <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="0x…"
+          placeholder="0x… or name.eth"
           spellCheck={false}
           autoComplete="off"
           disabled={disabled}

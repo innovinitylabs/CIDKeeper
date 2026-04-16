@@ -8,6 +8,7 @@ import { nftKey } from "@/lib/nft-cids";
 import { MAX_EXTRA_FOUNDATION_FACTORIES } from "@/lib/extra-foundation-factories";
 import { FOUNDATION_FACTORIES, FOUNDATION_FACTORY_SET } from "@/lib/foundation-factory";
 import { isEthereumAddress } from "@/lib/address";
+import { isWalletOrEns } from "@/lib/resolve-owner";
 import {
   HEADER_ALCHEMY_API_KEY,
   HEADER_WEB3_STORAGE_TOKEN,
@@ -55,6 +56,7 @@ export default function Home() {
   const [rows, setRows] = useState<ExtractedNftRow[] | null>(null);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => new Set());
   const [banner, setBanner] = useState<string | null>(null);
+  const [ensNotice, setEnsNotice] = useState<string | null>(null);
   const [pinMessage, setPinMessage] = useState<string | null>(null);
 
   const [phase, setPhase] = useState<"idle" | "nfts" | "extract" | "zip" | "pin">("idle");
@@ -209,6 +211,7 @@ export default function Home() {
     setRows(null);
     setSelectedKeys(new Set());
     setBanner(null);
+    setEnsNotice(null);
     setPinMessage(null);
     setPhase("idle");
     setProgress(null);
@@ -258,6 +261,7 @@ export default function Home() {
 
   const fetchNfts = useCallback(async () => {
     setBanner(null);
+    setEnsNotice(null);
     setPinMessage(null);
     setRows(null);
     setNfts([]);
@@ -279,6 +283,11 @@ export default function Home() {
       if (!res.ok) {
         setBanner(data?.message ?? "Could not load NFTs.");
         return;
+      }
+      if (typeof data.ensResolved === "string" && typeof data.ownerAddress === "string") {
+        setEnsNotice(`${data.ensResolved} resolves to ${data.ownerAddress}`);
+      } else {
+        setEnsNotice(null);
       }
       const list = Array.isArray(data.nfts) ? (data.nfts as NormalizedNft[]) : [];
       setNfts(list);
@@ -306,6 +315,10 @@ export default function Home() {
       const w = wallet.trim();
       if (!w) {
         setBanner("Enter a wallet first.");
+        return;
+      }
+      if (!isWalletOrEns(w)) {
+        setBanner("Enter a valid 0x wallet address or a mainnet ENS name (e.g. valipokkann.eth).");
         return;
       }
       setBanner(null);
@@ -674,6 +687,11 @@ export default function Home() {
           {banner ? (
             <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100">
               {banner}
+            </p>
+          ) : null}
+          {ensNotice ? (
+            <p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-100">
+              {ensNotice}
             </p>
           ) : null}
           {pinMessage ? (

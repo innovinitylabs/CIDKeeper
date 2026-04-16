@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getNftsForOwner } from "@/lib/alchemy";
-import { isEthereumAddress } from "@/lib/address";
 import { sanitizeExtraFoundationFactories } from "@/lib/extra-foundation-factories";
+import { resolveOwnerToAddress } from "@/lib/resolve-owner";
 import { alchemyApiKeyFromRequest } from "@/lib/user-provider-keys";
 import { downloadExactBytes, extensionFromContentType, limitConcurrency5 } from "@/lib/ipfs";
 import { extractCidsFromNft, normalizeTokenId, pickPrimaryExport } from "@/lib/nft-cids";
@@ -47,10 +47,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "invalid_body", issues: parsed.error.flatten() }, { status: 400 });
     }
 
-    const wallet = parsed.data.wallet.trim();
-    if (!isEthereumAddress(wallet)) {
-      return NextResponse.json({ error: "invalid_wallet" }, { status: 400 });
-    }
+    const walletInput = parsed.data.wallet.trim();
 
     const key = alchemyApiKeyFromRequest(req);
     if (!key) {
@@ -63,6 +60,15 @@ export async function POST(req: Request) {
         { status: 401 },
       );
     }
+
+    const resolvedWallet = await resolveOwnerToAddress(walletInput, key);
+    if (!resolvedWallet.ok) {
+      return NextResponse.json(
+        { error: resolvedWallet.error, message: resolvedWallet.message },
+        { status: resolvedWallet.error === "ens_not_found" ? 404 : 400 },
+      );
+    }
+    const wallet = resolvedWallet.address;
 
     const maxNfts = Math.max(1, Number(process.env.MAX_NFTS_FOR_ZIP ?? 150) || 150);
 
