@@ -14,6 +14,10 @@ const ZERO = "0x0000000000000000000000000000000000000000";
 export const NFT_COLLECTION_CREATED_TOPIC =
   "0x22bd5d982c942d99c12bfa4feda7e796b2b9d6a1b8097c890871b12de29963eb";
 
+/** Pre-2023 Foundation factory: `CollectionCreated(address,address,uint256,string,string,uint256)` (same indexed layout as `NFTCollectionCreated`). */
+export const LEGACY_COLLECTION_CREATED_TOPIC =
+  "0xd3cbcb86b6ae20e08baf6a5fbaf0c922acff26cdc663bdf06744f5023bbcd254";
+
 export const NFT_DROP_COLLECTION_CREATED_TOPIC =
   "0xea349a1d0c88438cb9fe73b6ea9d6389305d876c3faadf16c5039dd7a1be39fb";
 
@@ -41,7 +45,10 @@ export function extractFoundationFactoryCollectionAddresses(
     const t0 = topics[0]?.toLowerCase();
     if (!t0) continue;
 
-    if (t0 === NFT_COLLECTION_CREATED_TOPIC && topics.length >= 4) {
+    if (
+      (t0 === NFT_COLLECTION_CREATED_TOPIC || t0 === LEGACY_COLLECTION_CREATED_TOPIC) &&
+      topics.length >= 4
+    ) {
       const collection = topicAddr(topics[1]);
       const creator = topicAddr(topics[2]);
       if (!collection || collection === ZERO || creator !== walletLower) continue;

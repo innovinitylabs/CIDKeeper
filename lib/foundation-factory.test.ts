@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   extractFoundationFactoryCollectionAddresses,
   FOUNDATION_FACTORIES,
+  LEGACY_COLLECTION_CREATED_TOPIC,
   NFT_COLLECTION_CREATED_TOPIC,
   NFT_DROP_COLLECTION_CREATED_TOPIC,
 } from "@/lib/foundation-factory";
@@ -15,6 +16,20 @@ function padAddr(addr: string): string {
   const a = addr.toLowerCase().replace(/^0x/, "");
   return "0x" + a.padStart(64, "0");
 }
+
+test("extractFoundationFactoryCollectionAddresses reads legacy CollectionCreated (2022 factory)", () => {
+  const wallet = "0x5e051c9106071baf1e4c087e3e06fdd17396a433";
+  const collection = "0xfae047fff8d0c55f31dd2c7f4641f51e49677419";
+  const logs = [
+    {
+      address: FACTORY,
+      topics: [LEGACY_COLLECTION_CREATED_TOPIC, padAddr(collection), padAddr(wallet), padAddr("0x1")],
+      data: "0x",
+    },
+  ];
+  const out = extractFoundationFactoryCollectionAddresses(logs, wallet.toLowerCase());
+  assert.deepEqual(out, [collection.toLowerCase()]);
+});
 
 test("extractFoundationFactoryCollectionAddresses reads NFTCollectionCreated", () => {
   const collection = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
