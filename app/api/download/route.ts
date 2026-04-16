@@ -12,7 +12,7 @@ export const maxDuration = 60;
 
 const BodySchema = z.object({
   wallet: z.string(),
-  scope: z.enum(["mintedBy", "mintedTo", "all"]).optional(),
+  scope: z.enum(["created", "owned", "mintedBy", "all"]).optional(),
   selection: z
     .array(
       z.object({
@@ -55,8 +55,7 @@ export async function POST(req: Request) {
 
     const maxNfts = Math.max(1, Number(process.env.MAX_NFTS_FOR_ZIP ?? 150) || 150);
 
-    const listScope: NftListScope =
-      parsed.data.scope === "mintedTo" ? "mintedTo" : parsed.data.scope === "all" ? "all" : "mintedBy";
+    const listScope: NftListScope = parsed.data.scope === "owned" || parsed.data.scope === "all" ? "owned" : "created";
     const fetched = await getNftsForOwner(wallet, key, { scope: listScope });
     const selected = fetched.nfts.filter((n) => matchesSelection(n, parsed.data.selection));
 

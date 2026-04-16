@@ -17,7 +17,7 @@ export default function Home() {
 
   const [phase, setPhase] = useState<"idle" | "nfts" | "extract" | "zip" | "pin">("idle");
   const [progress, setProgress] = useState<number | null>(null);
-  const [nftScope, setNftScope] = useState<NftListScope>("mintedBy");
+  const [nftScope, setNftScope] = useState<NftListScope>("created");
 
   const busy = phase !== "idle";
 
@@ -238,21 +238,19 @@ export default function Home() {
                   type="radio"
                   name="nftScope"
                   className="mt-0.5 text-emerald-700 focus:ring-emerald-600"
-                  checked={nftScope === "mintedBy"}
+                  checked={nftScope === "created"}
                   onChange={() => {
-                    setNftScope("mintedBy");
+                    setNftScope("created");
                     setNfts([]);
                     setRows(null);
                     setSelectedKeys(new Set());
                   }}
                 />
                 <span>
-                  <span className="font-medium text-zinc-800 dark:text-zinc-200">Minted by this wallet (creator)</span>
+                  <span className="font-medium text-zinc-800 dark:text-zinc-200">Created by this wallet</span>
                   <span className="block text-xs text-zinc-500 dark:text-zinc-500">
-                    Uses mint transfers to your address to find candidate transactions, then keeps txs whose{" "}
-                    <span className="font-mono">from</span> is your wallet and expands the receipt so tokens minted to other
-                    recipients in the same transaction appear too. Does not discover mint-only-to-others txs that never hit
-                    your wallet in that discovery path.
+                    Finds contracts deployed by your wallet, keeps only ERC721/ERC1155 collections, then enumerates every NFT
+                    in those contracts. This includes items now owned by other wallets too.
                   </span>
                 </span>
               </label>
@@ -261,41 +259,19 @@ export default function Home() {
                   type="radio"
                   name="nftScope"
                   className="mt-0.5 text-emerald-700 focus:ring-emerald-600"
-                  checked={nftScope === "mintedTo"}
+                  checked={nftScope === "owned"}
                   onChange={() => {
-                    setNftScope("mintedTo");
+                    setNftScope("owned");
                     setNfts([]);
                     setRows(null);
                     setSelectedKeys(new Set());
                   }}
                 />
                 <span>
-                  <span className="font-medium text-zinc-800 dark:text-zinc-200">Minted to this wallet (received)</span>
+                  <span className="font-medium text-zinc-800 dark:text-zinc-200">Owned by this wallet</span>
                   <span className="block text-xs text-zinc-500 dark:text-zinc-500">
-                    ERC721/1155 mint events with <span className="font-mono">from</span> = zero address and{" "}
-                    <span className="font-mono">to</span> = your wallet. Includes self-mints and airdrops. List is intersected
-                    with what you still own today so the grid stays a current inventory.
-                  </span>
-                </span>
-              </label>
-              <label className="flex cursor-pointer items-start gap-2 text-zinc-600 dark:text-zinc-400">
-                <input
-                  type="radio"
-                  name="nftScope"
-                  className="mt-0.5 text-emerald-700 focus:ring-emerald-600"
-                  checked={nftScope === "all"}
-                  onChange={() => {
-                    setNftScope("all");
-                    setNfts([]);
-                    setRows(null);
-                    setSelectedKeys(new Set());
-                  }}
-                />
-                <span>
-                  <span className="font-medium text-zinc-800 dark:text-zinc-200">All NFTs owned by this wallet</span>
-                  <span className="block text-xs text-zinc-500 dark:text-zinc-500">
-                    Alchemy <span className="font-mono">getNFTs</span> ownership view (purchases, gifts, mints—everything
-                    currently held).
+                    Current wallet inventory from Alchemy ownership data, including items created by others and items minted on
+                    other contracts using your wallet.
                   </span>
                 </span>
               </label>
@@ -316,11 +292,9 @@ export default function Home() {
               <ProgressBar
                 label={
                   phase === "nfts"
-                    ? nftScope === "mintedBy"
-                      ? "Fetching NFTs and resolving creator (tx.from) mints…"
-                      : nftScope === "mintedTo"
-                        ? "Fetching NFTs and applying mint-to-wallet filter…"
-                        : "Fetching NFTs from Alchemy…"
+                    ? nftScope === "created"
+                      ? "Fetching deployed NFT contracts and enumerating created items..."
+                      : "Fetching current wallet holdings from Alchemy..."
                     : phase === "extract"
                       ? "Checking IPFS gateway health…"
                       : phase === "zip"

@@ -4,16 +4,14 @@ import type { NftListScope } from "@/types/nft";
 import { isEthereumAddress } from "@/lib/address";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const owner = searchParams.get("owner") ?? "";
     const scopeParam = searchParams.get("scope");
-    let scope: NftListScope = "mintedBy";
-    if (scopeParam === "mintedTo") scope = "mintedTo";
-    else if (scopeParam === "all") scope = "all";
+    const scope: NftListScope = scopeParam === "owned" || scopeParam === "all" ? "owned" : "created";
 
     if (!isEthereumAddress(owner)) {
       return NextResponse.json({ error: "invalid_wallet", message: "Owner must be a 0x-prefixed 40-hex address." }, { status: 400 });

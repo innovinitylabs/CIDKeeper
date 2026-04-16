@@ -5,8 +5,6 @@ import type { NormalizedNft } from "@/types/nft";
 
 const ZERO = "0x0000000000000000000000000000000000000000";
 const MAX_MINT_TO_WALLET_PAGES = 320;
-const MAX_CREATOR_TX_RECEIPTS = 400;
-const MAX_METADATA_FETCH = 400;
 
 type RpcJson<T> = { result?: T; error?: { message?: string } };
 
@@ -48,14 +46,22 @@ async function alchemyRpc<R>(apiKey: string, method: string, params: unknown[]):
 }
 
 async function fetchTxFromLower(apiKey: string, hash: string): Promise<string | null> {
-  const json = await alchemyRpc<{ from?: string } | null>(apiKey, "eth_getTransactionByHash", [hash]);
-  const from = json.result?.from;
-  return typeof from === "string" ? from.toLowerCase() : null;
+  try {
+    const json = await alchemyRpc<{ from?: string } | null>(apiKey, "eth_getTransactionByHash", [hash]);
+    const from = json.result?.from;
+    return typeof from === "string" ? from.toLowerCase() : null;
+  } catch {
+    return null;
+  }
 }
 
 async function fetchReceipt(apiKey: string, hash: string): Promise<TxReceipt | null> {
-  const json = await alchemyRpc<TxReceipt | null>(apiKey, "eth_getTransactionReceipt", [hash]);
-  return json.result ?? null;
+  try {
+    const json = await alchemyRpc<TxReceipt | null>(apiKey, "eth_getTransactionReceipt", [hash]);
+    return json.result ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function transferToRows(t: AssetTransfer): { contract: string; tokenId: string; hash: string }[] {
@@ -79,7 +85,6 @@ function transferToRows(t: AssetTransfer): { contract: string; tokenId: string; 
 
 /**
  * Paginate ERC721/1155 mint transfers (from zero) to `wallet` (any contract).
- * Each row must have transfer.from == zero (Alchemy usually satisfies this for the query).
  */
 async function paginateMintTransfersToWallet(
   wallet: string,
@@ -146,40 +151,106 @@ export async function collectMintedToWalletKeys(wallet: string, apiKey: string):
 }
 
 /**
- * mintedBy: tx.from == wallet, using mint logs in those transactions (includes mints to other recipients in the same tx).
- * Discovery: paginate mint-to-wallet transfers, then expand each qualifying tx via receipt logs.
- * Note: mint transactions that never send a token to this wallet are not discoverable via this indexer alone.
+ * mintedBy (creator): paginate ALL chain mint transfers (from == zero, no toAddress filter),
+ * keep txs whose sender is `wallet`, then expand each receipt for every mint-from-zero in that tx.
+ * Capped by env for RPC cost; may miss older mints if the cap is exceeded while scanning recent global mints.
  */
-export async function collectMintedByWalletKeys(wallet: string, apiKey: string): Promise<{ keys: Set<string>; errors: string[] }> {
+export async function collectCreatorMintKeys(apiKey: string, wallet: string): Promise<{ keys: Set<string>; errors: string[] }> {
   const errors: string[] = [];
-  const ownerLower = wallet.toLowerCase();
-  const { rows, errors: pageErrors } = await paginateMintTransfersToWallet(wallet, apiKey);
-  errors.push(...pageErrors);
-
-  const hashSet = new Set(rows.map((r) => r.hash));
-
-  const hashes = [...hashSet].slice(0, MAX_CREATOR_TX_RECEIPTS);
-  if (hashSet.size > MAX_CREATOR_TX_RECEIPTS) {
-    errors.push(`creator_tx_cap_${MAX_CREATOR_TX_RECEIPTS}`);
-  }
-
-  const limit = createConcurrencyLimiter(8);
+  const walletLower = wallet.toLowerCase();
   const keys = new Set<string>();
 
-  await Promise.all(
-    hashes.map((h) =>
-      limit(async () => {
-        const sender = await fetchTxFromLower(apiKey, h);
-        if (!sender || sender !== ownerLower) return;
-        const receipt = await fetchReceipt(apiKey, h);
-        if (!receipt?.logs) return;
-        const minted = extractMintedFromZeroInReceipt(receipt.logs);
-        for (const m of minted) {
+  const maxPages = Math.max(1, Math.min(5000, Number(process.env.MINTED_BY_MAX_MINT_PAGES ?? 300) || 300));
+  const maxKeys = Math.max(1, Math.min(50_000, Number(process.env.MINTED_BY_MAX_KEYS ?? 2000) || 2000));
+  const fromBlock = (process.env.MINTED_BY_FROM_BLOCK ?? "0x0").trim() || "0x0";
+
+  const txFromCache = new Map<string, string | null>();
+  const receiptCache = new Map<string, TxReceipt | null>();
+  const expandedHashes = new Set<string>();
+
+  let pageKey: string | undefined;
+  const limitTx = createConcurrencyLimiter(10);
+
+  for (let page = 0; page < maxPages; page++) {
+    const params: Record<string, unknown> = {
+      fromBlock,
+      toBlock: "latest",
+      fromAddress: ZERO,
+      category: ["erc721", "erc1155"],
+      excludeZeroValue: false,
+      withMetadata: false,
+      maxCount: "0x3e8",
+      order: "desc",
+    };
+    if (pageKey) params.pageKey = pageKey;
+
+    let json: RpcJson<{ transfers?: AssetTransfer[]; pageKey?: string }>;
+    try {
+      json = await alchemyRpc<{ transfers?: AssetTransfer[]; pageKey?: string }>(
+        apiKey,
+        "alchemy_getAssetTransfers",
+        [params],
+      );
+    } catch (e) {
+      errors.push(e instanceof Error ? e.message : "global_mint_page_failed");
+      break;
+    }
+
+    const transfers = json.result?.transfers ?? [];
+    const pageHashes = new Set<string>();
+    for (const t of transfers) {
+      if (!isZeroAddress(t.from ?? undefined)) continue;
+      const h = t.hash;
+      if (typeof h === "string" && h.length) pageHashes.add(h);
+    }
+
+    await Promise.all(
+      [...pageHashes].map((h) =>
+        limitTx(async () => {
+          if (txFromCache.has(h)) return;
+          const from = await fetchTxFromLower(apiKey, h);
+          txFromCache.set(h, from);
+        }),
+      ),
+    );
+
+    for (const h of pageHashes) {
+      if (expandedHashes.has(h)) continue;
+      const from = txFromCache.get(h);
+      if (!from || from !== walletLower) continue;
+
+      if (!receiptCache.has(h)) {
+        receiptCache.set(h, await fetchReceipt(apiKey, h));
+      }
+      const rec = receiptCache.get(h) ?? null;
+
+      expandedHashes.add(h);
+      if (!rec?.logs) continue;
+
+      try {
+        for (const m of extractMintedFromZeroInReceipt(rec.logs)) {
           keys.add(nftKey({ contractAddress: m.contract, tokenId: m.tokenId }));
+          if (keys.size >= maxKeys) {
+            errors.push(`creator_keys_cap_${maxKeys}`);
+            return { keys, errors };
+          }
         }
-      }),
-    ),
-  );
+      } catch {
+        errors.push(`receipt_parse_failed_${h.slice(0, 10)}`);
+      }
+    }
+
+    const next = json.result?.pageKey;
+    if (!next || String(next).length === 0) {
+      pageKey = undefined;
+      break;
+    }
+    pageKey = String(next);
+    if (page === maxPages - 1) {
+      errors.push(`minted_by_mint_page_cap_${maxPages}`);
+      break;
+    }
+  }
 
   return { keys, errors };
 }
@@ -241,39 +312,57 @@ export async function fetchNftMetadataAsNormalized(
   };
 }
 
-export async function mergeOwnedWithMintedByExtras(
-  apiKey: string,
-  owned: NormalizedNft[],
-  keys: Set<string>,
-): Promise<{ nfts: NormalizedNft[]; errors: string[] }> {
+/**
+ * Hydrate Alchemy metadata for each creator key (no ownership / getNFTs involved).
+ */
+export async function hydrateNftsFromKeys(apiKey: string, keys: Set<string>): Promise<{ nfts: NormalizedNft[]; errors: string[] }> {
   const errors: string[] = [];
+  const ordered = [...keys].sort();
+  const maxMeta = Math.max(1, Math.min(10_000, Number(process.env.MINTED_BY_MAX_METADATA_FETCH ?? 800) || 800));
+  const slice = ordered.length > maxMeta ? ordered.slice(0, maxMeta) : ordered;
+  if (ordered.length > maxMeta) {
+    errors.push(`metadata_fetch_cap_${maxMeta}`);
+  }
+
   const byKey = new Map<string, NormalizedNft>();
-  for (const n of owned) {
-    byKey.set(nftKey(n), n);
-  }
+  const limit = createConcurrencyLimiter(8);
 
-  const missing = [...keys].filter((k) => !byKey.has(k)).sort();
-  const slice = missing.slice(0, MAX_METADATA_FETCH);
-  if (missing.length > MAX_METADATA_FETCH) {
-    errors.push(`metadata_fetch_cap_${MAX_METADATA_FETCH}`);
-  }
-
-  const limit = createConcurrencyLimiter(5);
   await Promise.all(
     slice.map((k) =>
       limit(async () => {
         const parsed = parseNftKey(k);
         if (!parsed) return;
-        const row = await fetchNftMetadataAsNormalized(apiKey, parsed.contractAddress, parsed.tokenId);
-        if (row) byKey.set(k, row);
+        try {
+          const row = await fetchNftMetadataAsNormalized(apiKey, parsed.contractAddress, parsed.tokenId);
+          byKey.set(k, row);
+        } catch {
+          byKey.set(k, {
+            contractAddress: parsed.contractAddress,
+            tokenId: parsed.tokenId,
+            tokenURI: null,
+            metadata: null,
+            name: null,
+          });
+        }
       }),
     ),
   );
 
-  const orderedKeys = [...keys].sort();
   const nfts: NormalizedNft[] = [];
-  for (const k of orderedKeys) {
-    const n = byKey.get(k);
+  for (const k of ordered) {
+    let n = byKey.get(k);
+    if (!n) {
+      const p = parseNftKey(k);
+      if (p) {
+        n = {
+          contractAddress: p.contractAddress,
+          tokenId: p.tokenId,
+          tokenURI: null,
+          metadata: null,
+          name: null,
+        };
+      }
+    }
     if (n) nfts.push(n);
   }
 

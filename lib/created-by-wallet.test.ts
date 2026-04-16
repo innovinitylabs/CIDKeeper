@@ -1,0 +1,84 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import {
+  collectDeployedContractAddresses,
+  filterSupportedCreatedContracts,
+  normalizeContractNfts,
+} from "@/lib/created-by-wallet";
+
+test("collectDeployedContractAddresses keeps only deployment receipts with contract addresses", () => {
+  const transfers = [
+    { hash: "0xaaa", to: null },
+    { hash: "0xbbb", to: "0x1234" },
+    { hash: "0xaaa", to: null },
+    { hash: "0xccc", to: null },
+  ];
+
+  const receipts = new Map<string, { contractAddress?: string | null } | null>([
+    ["0xaaa", { contractAddress: "0xAbC0000000000000000000000000000000000001" }],
+    ["0xccc", { contractAddress: null }],
+  ]);
+
+  assert.deepEqual(collectDeployedContractAddresses(transfers, receipts), [
+    "0xabc0000000000000000000000000000000000001",
+  ]);
+});
+
+test("filterSupportedCreatedContracts keeps only NFT contracts deployed by the wallet", () => {
+  const wallet = "0x9999999999999999999999999999999999999999";
+  const contracts = [
+    {
+      address: "0xabc0000000000000000000000000000000000001",
+      tokenType: "ERC721",
+      contractDeployer: wallet,
+    },
+    {
+      address: "0xabc0000000000000000000000000000000000002",
+      tokenType: "NOT_A_CONTRACT",
+      contractDeployer: wallet,
+    },
+    {
+      address: "0xabc0000000000000000000000000000000000003",
+      tokenType: "ERC1155",
+      contractDeployer: "0x1111111111111111111111111111111111111111",
+    },
+  ];
+
+  assert.deepEqual(filterSupportedCreatedContracts(wallet, contracts), [
+    "0xabc0000000000000000000000000000000000001",
+  ]);
+});
+
+test("normalizeContractNfts dedupes contract tokens across contract pages", () => {
+  const nfts = normalizeContractNfts([
+    {
+      contract: { address: "0xabc0000000000000000000000000000000000001" },
+      tokenId: "1",
+      tokenUri: "ipfs://meta-1",
+      metadata: { name: "One" },
+      name: "One",
+    },
+    {
+      contract: { address: "0xabc0000000000000000000000000000000000001" },
+      tokenId: "1",
+      tokenURI: "ipfs://meta-1",
+      metadata: { name: "One" },
+      title: "One",
+    },
+    {
+      contract: { address: "0xabc0000000000000000000000000000000000002" },
+      tokenId: "7",
+      metadata: { name: "Seven" },
+    },
+  ]);
+
+  assert.equal(nfts.length, 2);
+  assert.deepEqual(
+    nfts.map((nft) => ({ contractAddress: nft.contractAddress, tokenId: nft.tokenId })),
+    [
+      { contractAddress: "0xabc0000000000000000000000000000000000001", tokenId: "1" },
+      { contractAddress: "0xabc0000000000000000000000000000000000002", tokenId: "7" },
+    ],
+  );
+});

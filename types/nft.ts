@@ -1,5 +1,5 @@
 /** NFT list mode for /api/nfts and exports */
-export type NftListScope = "mintedBy" | "mintedTo" | "all";
+export type NftListScope = "created" | "owned";
 
 export type HealthStatus = "alive" | "slow" | "dead";
 

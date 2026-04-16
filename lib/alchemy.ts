@@ -1,9 +1,8 @@
 import {
-  collectMintedByWalletKeys,
-  collectMintedToWalletKeys,
-  mergeOwnedWithMintedByExtras,
-} from "@/lib/minted-by-wallet";
-import { nftKey } from "@/lib/nft-cids";
+  collectCreatedContractAddresses,
+  fetchCreatedNftsFromContracts,
+  filterCreatedNftContracts,
+} from "@/lib/created-by-wallet";
 import type { NormalizedNft, NftListScope } from "@/types/nft";
 
 export type { NftListScope } from "@/types/nft";
@@ -97,30 +96,23 @@ export async function getNftsForOwner(
   apiKey: string,
   options?: { scope?: NftListScope },
 ): Promise<FetchNftsResult> {
-  const { nfts: owned, pageErrors } = await fetchAllOwned(owner, apiKey);
-  const scope: NftListScope = options?.scope ?? "mintedBy";
+  const scope: NftListScope = options?.scope ?? "created";
 
-  if (scope === "all") {
-    return { nfts: owned, pageErrors };
-  }
-
-  if (scope === "mintedTo") {
-    try {
-      const { keys, errors } = await collectMintedToWalletKeys(owner, apiKey);
-      const filtered = owned.filter((n) => keys.has(nftKey(n)));
-      return { nfts: filtered, pageErrors: [...pageErrors, ...errors] };
-    } catch (e) {
-      pageErrors.push(e instanceof Error ? e.message : "minted_to_filter_failed");
-      return { nfts: owned, pageErrors };
-    }
+  if (scope === "owned") {
+    return fetchAllOwned(owner, apiKey);
   }
 
   try {
-    const { keys, errors } = await collectMintedByWalletKeys(owner, apiKey);
-    const { nfts, errors: mergeErr } = await mergeOwnedWithMintedByExtras(apiKey, owned, keys);
-    return { nfts, pageErrors: [...pageErrors, ...errors, ...mergeErr] };
+    const { contracts: deployedContracts, errors: deploymentErrors } = await collectCreatedContractAddresses(apiKey, owner);
+    const { contracts: nftContracts, errors: contractErrors } = await filterCreatedNftContracts(
+      apiKey,
+      owner,
+      deployedContracts,
+    );
+    const { nfts, errors: nftErrors } = await fetchCreatedNftsFromContracts(apiKey, nftContracts);
+    return { nfts, pageErrors: [...deploymentErrors, ...contractErrors, ...nftErrors] };
   } catch (e) {
-    pageErrors.push(e instanceof Error ? e.message : "minted_by_filter_failed");
-    return { nfts: owned, pageErrors };
+    const message = e instanceof Error ? e.message : "created_filter_failed";
+    return { nfts: [], pageErrors: [message] };
   }
 }
