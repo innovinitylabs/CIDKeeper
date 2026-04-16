@@ -11,8 +11,9 @@ import { isEthereumAddress } from "@/lib/address";
 import {
   HEADER_ALCHEMY_API_KEY,
   HEADER_WEB3_STORAGE_TOKEN,
-  LOCAL_STORAGE_ALCHEMY_KEY,
-  LOCAL_STORAGE_WEB3_TOKEN,
+  clearProviderKeysFromBrowser,
+  loadProviderKeysFromBrowser,
+  saveProviderKeysToBrowser,
 } from "@/lib/user-provider-keys";
 import type { ExtractedNftRow, NormalizedNft, NftListScope } from "@/types/nft";
 
@@ -62,6 +63,7 @@ export default function Home() {
   const [supportCopied, setSupportCopied] = useState<string | null>(null);
   const [localAlchemyKey, setLocalAlchemyKey] = useState("");
   const [localWeb3Token, setLocalWeb3Token] = useState("");
+  const [providerKeysNotice, setProviderKeysNotice] = useState<string | null>(null);
   const [extraFoundationFactories, setExtraFoundationFactories] = useState<string[]>([]);
   const [factoryAddressInput, setFactoryAddressInput] = useState("");
 
@@ -69,8 +71,9 @@ export default function Home() {
 
   useEffect(() => {
     try {
-      setLocalAlchemyKey(window.localStorage.getItem(LOCAL_STORAGE_ALCHEMY_KEY) ?? "");
-      setLocalWeb3Token(window.localStorage.getItem(LOCAL_STORAGE_WEB3_TOKEN) ?? "");
+      const loaded = loadProviderKeysFromBrowser();
+      setLocalAlchemyKey(loaded.alchemyApiKey);
+      setLocalWeb3Token(loaded.web3StorageToken);
       const raw = window.localStorage.getItem(LOCAL_STORAGE_EXTRA_FOUNDATION_FACTORIES);
       if (raw) {
         const parsed = JSON.parse(raw) as unknown;
@@ -97,29 +100,32 @@ export default function Home() {
   }, [localAlchemyKey, localWeb3Token]);
 
   const persistProviderKeys = useCallback(() => {
+    const ak = localAlchemyKey.trim();
+    const wt = localWeb3Token.trim();
+    if (!ak && !wt) {
+      setBanner("Enter at least one key to save, or use Clear stored keys to remove saved keys.");
+      setProviderKeysNotice(null);
+      return;
+    }
     try {
-      const ak = localAlchemyKey.trim();
-      const wt = localWeb3Token.trim();
-      if (ak) window.localStorage.setItem(LOCAL_STORAGE_ALCHEMY_KEY, ak);
-      else window.localStorage.removeItem(LOCAL_STORAGE_ALCHEMY_KEY);
-      if (wt) window.localStorage.setItem(LOCAL_STORAGE_WEB3_TOKEN, wt);
-      else window.localStorage.removeItem(LOCAL_STORAGE_WEB3_TOKEN);
+      saveProviderKeysToBrowser(localAlchemyKey, localWeb3Token);
       setBanner(null);
+      setProviderKeysNotice("Saved keys in this browser.");
+      window.setTimeout(() => {
+        setProviderKeysNotice((current) => (current === "Saved keys in this browser." ? null : current));
+      }, 2400);
     } catch {
       setBanner("Could not save keys in this browser (storage may be blocked).");
+      setProviderKeysNotice(null);
     }
   }, [localAlchemyKey, localWeb3Token]);
 
   const clearProviderKeys = useCallback(() => {
     setLocalAlchemyKey("");
     setLocalWeb3Token("");
-    try {
-      window.localStorage.removeItem(LOCAL_STORAGE_ALCHEMY_KEY);
-      window.localStorage.removeItem(LOCAL_STORAGE_WEB3_TOKEN);
-    } catch {
-      // ignore
-    }
+    clearProviderKeysFromBrowser();
     setBanner(null);
+    setProviderKeysNotice(null);
   }, []);
 
   const persistExtraFactories = useCallback((next: string[]) => {
@@ -460,7 +466,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={persistProviderKeys}
-                disabled={busy}
+                disabled={busy || (!localAlchemyKey.trim() && !localWeb3Token.trim())}
                 className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
               >
                 Save to this browser
@@ -474,6 +480,9 @@ export default function Home() {
                 Clear stored keys
               </button>
             </div>
+            {providerKeysNotice ? (
+              <p className="mt-2 text-xs font-medium text-brand dark:text-brand-light">{providerKeysNotice}</p>
+            ) : null}
           </details>
           <details className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50/80 px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900/40">
             <summary className="cursor-pointer font-medium text-zinc-800 select-none dark:text-zinc-200">

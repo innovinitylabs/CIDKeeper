@@ -13,7 +13,7 @@ type Props = {
 };
 
 function badgeClass(health: ExtractedNftRow["health"]) {
-  if (health === "alive") return "bg-brand/15 text-brand-ink ring-brand/25 dark:text-brand-light dark:ring-brand/35";
+  if (health === "alive") return "bg-emerald-500/15 text-emerald-800 ring-emerald-500/30 dark:text-emerald-200 dark:ring-emerald-500/35";
   if (health === "slow") return "bg-amber-500/15 text-amber-900 ring-amber-500/30 dark:text-amber-100";
   if (health === "arweave") return "bg-sky-500/15 text-sky-900 ring-sky-500/30 dark:text-sky-100";
   return "bg-rose-500/15 text-rose-900 ring-rose-500/30 dark:text-rose-100";
