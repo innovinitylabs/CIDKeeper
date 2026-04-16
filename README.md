@@ -2,6 +2,8 @@
 
 Backup and preserve NFTs before they disappear. CIDKeeper scans an Ethereum wallet via Alchemy, checks IPFS gateway health for primary assets, supports ZIP export with a manifest, and optional re-pinning through web3.storage.
 
+**Note:** web3.storage pinning in the UI and API is still a work in progress; ZIP export and CID checks are the more stable workflows.
+
 **Live site:** deploy as you prefer; the UI can use **your own** Alchemy and web3.storage credentials (stored in the browser) so you are not limited by shared free-tier quotas.
 
 ## Open source

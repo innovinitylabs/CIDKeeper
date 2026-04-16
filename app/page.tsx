@@ -482,10 +482,15 @@ export default function Home() {
                   onChange={(e) => setLocalWeb3Token(e.target.value)}
                   disabled={busy}
                   className="rounded-lg border border-zinc-300 bg-white px-3 py-2 font-mono text-xs text-zinc-900 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
-                  placeholder="Needed for Pin selected"
+                  placeholder="Needed for Pin selected (experimental)"
                 />
               </label>
             </div>
+            <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2 text-xs leading-relaxed text-amber-950 dark:border-amber-900/45 dark:bg-amber-950/35 dark:text-amber-100">
+              <span className="font-semibold">Work in progress:</span> Pinning via web3.storage is still being built and tested.
+              Prefer <span className="font-medium">ZIP export</span> and <span className="font-medium">CID analysis</span> for
+              production-style backups until pinning is stable.
+            </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <button
                 type="button"
@@ -740,7 +745,10 @@ export default function Home() {
             <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
               Vercel serverless exports are size- and time-bounded. If a wallet is large, prefer{" "}
               <span className="font-semibold text-zinc-700 dark:text-zinc-200">Download selected</span> and tune{" "}
-              <span className="font-mono">MAX_NFTS_FOR_ZIP</span> only if your deployment can handle heavier workloads.
+              <span className="font-mono">MAX_NFTS_FOR_ZIP</span> only if your deployment can handle heavier workloads.{" "}
+              <span className="font-medium text-zinc-600 dark:text-zinc-300">
+                Pin selected (web3.storage) is still a work in progress; expect rough edges.
+              </span>
             </p>
             <NFTGrid nfts={nfts} rows={rows} selectedKeys={selectedKeys} onToggle={toggle} onToggleAll={toggleAll} />
           </section>
