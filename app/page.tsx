@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { BrowserWalletBar } from "@/app/components/BrowserWalletBar";
 import { NFTGrid } from "@/app/components/NFTGrid";
 import { ProgressBar } from "@/app/components/ProgressBar";
 import { WalletInput } from "@/app/components/WalletInput";
@@ -461,6 +462,7 @@ export default function Home() {
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-6 py-10">
         <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
           <WalletInput value={wallet} onChange={setWallet} onSubmit={fetchNfts} onClear={clearAll} disabled={busy} />
+          <BrowserWalletBar />
           <details className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50/80 px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900/40">
             <summary className="cursor-pointer font-medium text-zinc-800 select-none dark:text-zinc-200">
               Your API keys (optional)

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { FoundationUnlistButton } from "@/app/components/FoundationUnlistButton";
 import { NftAssetLightbox } from "@/app/components/NftAssetLightbox";
 import { detectPrimaryStorage, extractCidsFromNft, nftKey, previewUrlFromNft } from "@/lib/nft-cids";
 import type { ExtractedNftRow, NormalizedNft } from "@/types/nft";
@@ -185,15 +186,27 @@ export function NFTGrid({ nfts, rows, selectedKeys, onToggle, onToggleAll }: Pro
                         <div className="text-[11px] text-zinc-500 dark:text-zinc-400">Primary source: {row.primaryLabel}</div>
                       ) : null}
                     </div>
-                    <div className="flex shrink-0 items-center gap-2 sm:w-44 sm:justify-end">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${badgeClass(health)}`}
-                      >
-                        {health}
-                      </span>
-                      <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                        {expandedKeys.has(key) ? "Hide raw" : "Show raw"}
-                      </span>
+                    <div className="flex shrink-0 flex-col items-stretch gap-2 sm:w-52 sm:items-end">
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${badgeClass(health)}`}
+                        >
+                          {health}
+                        </span>
+                        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                          {expandedKeys.has(key) ? "Hide raw" : "Show raw"}
+                        </span>
+                      </div>
+                      <FoundationUnlistButton
+                        contractAddress={nft.contractAddress}
+                        tokenId={nft.tokenId}
+                        compact
+                        className="flex flex-col items-end"
+                      />
+                      <p className="max-w-[13rem] text-right text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
+                        Uses this row&apos;s NFT collection contract on Foundation.market, not a factory address from the
+                        options below.
+                      </p>
                     </div>
                   </div>
                 </summary>
