@@ -1,6 +1,6 @@
 import { createConcurrencyLimiter } from "@/lib/ipfs";
 import { fetchWithAlchemyRetry } from "@/lib/alchemy-fetch";
-import { FOUNDATION_FACTORY_SET } from "@/lib/foundation-factory";
+import { FOUNDATION_FACTORY_SET, mergeFoundationFactorySet } from "@/lib/foundation-factory";
 import { extractMintedFromZeroInReceipt, type ReceiptLog } from "@/lib/evm-mint-receipt";
 import { nftKey, normalizeTokenId, parseNftKey } from "@/lib/nft-cids";
 import type { NormalizedNft } from "@/types/nft";
@@ -197,11 +197,12 @@ function shouldFetchReceiptBeforeParse(
   agg: HashAgg,
   enumeratedNft: Set<string>,
   marketplaceTxTo: Set<string>,
+  foundationFactorySet: Set<string>,
 ): boolean {
   if (agg.hasTransferFromZero) return true;
   if (txTo == null) return true;
   const t = txTo.toLowerCase();
-  if (FOUNDATION_FACTORY_SET.has(t)) return true;
+  if (foundationFactorySet.has(t)) return true;
   if (enumeratedNft.has(t)) return true;
   if (agg.rawContracts.has(t)) return true;
   if (marketplaceTxTo.has(t)) return true;
@@ -215,12 +216,13 @@ export function shouldFetchCreatorMintReceipt(
   hasTransferFromZero: boolean,
   enumeratedNft: Set<string>,
   marketplaceTxTo: Set<string>,
+  foundationFactorySet: Set<string> = FOUNDATION_FACTORY_SET,
 ): boolean {
   const agg: HashAgg = {
     rawContracts: new Set(rawContractAddresses.map((a) => a.toLowerCase())),
     hasTransferFromZero,
   };
-  return shouldFetchReceiptBeforeParse(txTo, agg, enumeratedNft, marketplaceTxTo);
+  return shouldFetchReceiptBeforeParse(txTo, agg, enumeratedNft, marketplaceTxTo, foundationFactorySet);
 }
 
 /**
@@ -230,7 +232,7 @@ export function shouldFetchCreatorMintReceipt(
 export async function collectCreatorMintKeys(
   apiKey: string,
   wallet: string,
-  options?: { enumeratedNftContracts?: Set<string> },
+  options?: { enumeratedNftContracts?: Set<string>; extraFoundationFactoryAddresses?: string[] },
 ): Promise<{ keys: Set<string>; errors: string[] }> {
   const errors: string[] = [];
   const walletLower = wallet.toLowerCase();
@@ -239,6 +241,7 @@ export async function collectCreatorMintKeys(
   for (const a of options?.enumeratedNftContracts ?? []) {
     if (a) enumeratedNft.add(a.toLowerCase());
   }
+  const foundationFactorySet = mergeFoundationFactorySet(options?.extraFoundationFactoryAddresses ?? []);
 
   const maxPages = Math.max(1, Math.min(5000, Number(process.env.MINTED_BY_MAX_WALLET_TRANSFER_PAGES ?? 2000) || 2000));
   const maxKeys = Math.max(1, Math.min(50_000, Number(process.env.MINTED_BY_MAX_KEYS ?? 2000) || 2000));
@@ -311,7 +314,7 @@ export async function collectCreatorMintKeys(
         const meta = await fetchTransactionMeta(apiKey, hash);
         if (!meta || meta.from !== walletLower) return;
         const txTo = meta.to;
-        if (!shouldFetchReceiptBeforeParse(txTo, agg, enumeratedNft, marketplaceTxTo)) {
+        if (!shouldFetchReceiptBeforeParse(txTo, agg, enumeratedNft, marketplaceTxTo, foundationFactorySet)) {
           return;
         }
 

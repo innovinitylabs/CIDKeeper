@@ -84,3 +84,18 @@ test("extractFoundationFactoryCollectionAddresses ignores non-factory log addres
   const out = extractFoundationFactoryCollectionAddresses(logs, WALLET);
   assert.deepEqual(out, []);
 });
+
+test("extractFoundationFactoryCollectionAddresses honors custom factory address set", () => {
+  const customFactory = "0x3333333333333333333333333333333333333333";
+  const collection = "0x4444444444444444444444444444444444444444";
+  const logs = [
+    {
+      address: customFactory,
+      topics: [NFT_COLLECTION_CREATED_TOPIC, padAddr(collection), padAddr(WALLET), padAddr("0x1")],
+      data: "0x",
+    },
+  ];
+  const allow = new Set([customFactory.toLowerCase()]);
+  const out = extractFoundationFactoryCollectionAddresses(logs, WALLET, allow);
+  assert.deepEqual(out, [collection.toLowerCase()]);
+});

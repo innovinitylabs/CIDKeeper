@@ -1,4 +1,5 @@
 import type { ReceiptLog } from "@/lib/evm-mint-receipt";
+import { isEthereumAddress } from "@/lib/address";
 
 export const FOUNDATION_FACTORIES = [
   "0x3B612a5B49e025a6e4bA4eE4FB1EF46D13588059",
@@ -8,6 +9,39 @@ export const FOUNDATION_FACTORIES = [
 export const FOUNDATION_FACTORY_SET: Set<string> = new Set(
   FOUNDATION_FACTORIES.map((a) => a.toLowerCase()),
 );
+
+/** Built-in Foundation factories plus validated extras (lowercase), deduped. */
+export function mergeFoundationFactorySet(extras: readonly string[]): Set<string> {
+  const out = new Set(FOUNDATION_FACTORY_SET);
+  for (const raw of extras) {
+    const t = raw.trim();
+    if (!isEthereumAddress(t)) continue;
+    out.add(t.toLowerCase());
+  }
+  return out;
+}
+
+/**
+ * Order preserved for Alchemy transfer scans: defaults first, then user-added addresses not in the built-in list.
+ */
+export function foundationFactoriesForAlchemyTransfers(extras: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const list: string[] = [];
+  for (const a of FOUNDATION_FACTORIES) {
+    const l = a.toLowerCase();
+    seen.add(l);
+    list.push(a);
+  }
+  for (const raw of extras) {
+    const t = raw.trim();
+    if (!isEthereumAddress(t)) continue;
+    const l = t.toLowerCase();
+    if (seen.has(l)) continue;
+    seen.add(l);
+    list.push(l);
+  }
+  return list;
+}
 
 const ZERO = "0x0000000000000000000000000000000000000000";
 
@@ -33,6 +67,7 @@ function topicAddr(topic: string | undefined): string | null {
 export function extractFoundationFactoryCollectionAddresses(
   logs: ReceiptLog[] | undefined,
   walletLower: string,
+  factoryLogAddressSet: Set<string> = FOUNDATION_FACTORY_SET,
 ): string[] {
   if (!Array.isArray(logs) || !logs.length) return [];
   const out: string[] = [];
@@ -40,7 +75,7 @@ export function extractFoundationFactoryCollectionAddresses(
 
   for (const log of logs) {
     const fac = log.address?.toLowerCase();
-    if (!fac || !FOUNDATION_FACTORY_SET.has(fac)) continue;
+    if (!fac || !factoryLogAddressSet.has(fac)) continue;
     const topics = log.topics ?? [];
     const t0 = topics[0]?.toLowerCase();
     if (!t0) continue;

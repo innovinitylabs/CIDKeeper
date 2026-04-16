@@ -1,6 +1,10 @@
 import { createConcurrencyLimiter } from "@/lib/ipfs";
 import { fetchWithAlchemyRetry } from "@/lib/alchemy-fetch";
-import { extractFoundationFactoryCollectionAddresses, FOUNDATION_FACTORIES } from "@/lib/foundation-factory";
+import {
+  extractFoundationFactoryCollectionAddresses,
+  foundationFactoriesForAlchemyTransfers,
+  mergeFoundationFactorySet,
+} from "@/lib/foundation-factory";
 import type { ReceiptLog } from "@/lib/evm-mint-receipt";
 import { nftKey } from "@/lib/nft-cids";
 import type { NormalizedNft } from "@/types/nft";
@@ -110,13 +114,16 @@ async function fetchDeploymentReceipt(apiKey: string, hash: string): Promise<TxR
 export async function collectFoundationFactoryContractAddresses(
   apiKey: string,
   wallet: string,
+  extraFactories: string[] = [],
 ): Promise<{ contracts: string[]; errors: string[] }> {
   const errors: string[] = [];
   const walletLower = wallet.toLowerCase();
   const hashSet = new Set<string>();
   const limit = createConcurrencyLimiter(4);
+  const factories = foundationFactoriesForAlchemyTransfers(extraFactories);
+  const factoryLogSet = mergeFoundationFactorySet(extraFactories);
 
-  for (const factory of FOUNDATION_FACTORIES) {
+  for (const factory of factories) {
     const factoryLower = factory.toLowerCase();
     let pageKey: string | undefined;
 
@@ -176,7 +183,7 @@ export async function collectFoundationFactoryContractAddresses(
 
   for (const hash of hashes) {
     const rec = receiptCache.get(hash) ?? null;
-    const found = extractFoundationFactoryCollectionAddresses(rec?.logs, walletLower);
+    const found = extractFoundationFactoryCollectionAddresses(rec?.logs, walletLower, factoryLogSet);
     for (const a of found) {
       if (seenAddr.has(a)) continue;
       seenAddr.add(a);

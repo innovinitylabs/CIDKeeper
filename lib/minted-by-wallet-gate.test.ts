@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { shouldFetchCreatorMintReceipt } from "@/lib/minted-by-wallet";
-import { FOUNDATION_FACTORIES } from "@/lib/foundation-factory";
+import { FOUNDATION_FACTORIES, mergeFoundationFactorySet } from "@/lib/foundation-factory";
 
 const SEAPORT_15 = "0x00000000000000ADc04C56Bf30AC9d3c0aAF14DC6".toLowerCase();
 
@@ -18,6 +18,12 @@ test("shouldFetchCreatorMintReceipt is true for Foundation factory tx.to", () =>
     shouldFetchCreatorMintReceipt(FOUNDATION_FACTORIES[0].toLowerCase(), [], false, new Set(), new Set()),
     true,
   );
+});
+
+test("shouldFetchCreatorMintReceipt is true for an extra factory when merged factory set is passed", () => {
+  const custom = "0x3333333333333333333333333333333333333333";
+  const set = mergeFoundationFactorySet([custom]);
+  assert.equal(shouldFetchCreatorMintReceipt(custom.toLowerCase(), [], false, new Set(), new Set(), set), true);
 });
 
 test("shouldFetchCreatorMintReceipt is true when tx.to is enumerated NFT contract", () => {

@@ -5,6 +5,7 @@ import {
   filterCreatedNftContracts,
 } from "@/lib/created-by-wallet";
 import { collectCreatorMintKeys, hydrateNftsFromKeys } from "@/lib/minted-by-wallet";
+import { isEthereumAddress } from "@/lib/address";
 import { nftKey } from "@/lib/nft-cids";
 import type { NormalizedNft, NftListScope } from "@/types/nft";
 
@@ -124,10 +125,11 @@ async function fetchAllOwned(owner: string, apiKey: string): Promise<FetchNftsRe
 export async function getNftsForOwner(
   owner: string,
   apiKey: string,
-  options?: { scope?: NftListScope; includeFactoryCollections?: boolean },
+  options?: { scope?: NftListScope; includeFactoryCollections?: boolean; extraFoundationFactories?: string[] },
 ): Promise<FetchNftsResult> {
   const scope: NftListScope = options?.scope ?? "created";
   const includeFactoryCollections = options?.includeFactoryCollections !== false;
+  const extraFoundationFactories = (options?.extraFoundationFactories ?? []).filter((a) => isEthereumAddress(a.trim()));
 
   if (scope === "owned") {
     return fetchAllOwned(owner, apiKey);
@@ -136,7 +138,7 @@ export async function getNftsForOwner(
   try {
     const deploymentPromise = collectCreatedContractAddresses(apiKey, owner);
     const factoryPromise = includeFactoryCollections
-      ? collectFoundationFactoryContractAddresses(apiKey, owner)
+      ? collectFoundationFactoryContractAddresses(apiKey, owner, extraFoundationFactories)
       : Promise.resolve({ contracts: [] as string[], errors: [] as string[] });
 
     const [{ contracts: deployedContracts, errors: deploymentErrors }, { contracts: factoryContracts, errors: factoryErrors }] =
@@ -162,7 +164,10 @@ export async function getNftsForOwner(
 
     const [{ nfts: contractNfts, errors: nftErrors }, { keys: creatorMintKeys, errors: mintKeyErrors }] = await Promise.all([
       fetchCreatedNftsFromContracts(apiKey, nftContracts),
-      collectCreatorMintKeys(apiKey, owner, { enumeratedNftContracts }),
+      collectCreatorMintKeys(apiKey, owner, {
+        enumeratedNftContracts,
+        extraFoundationFactoryAddresses: includeFactoryCollections ? extraFoundationFactories : undefined,
+      }),
     ]);
 
     const { nfts: mintNfts, errors: hydrateErrors } = await hydrateNftsFromKeys(apiKey, creatorMintKeys);

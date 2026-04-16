@@ -5,6 +5,9 @@ import { NFTGrid } from "@/app/components/NFTGrid";
 import { ProgressBar } from "@/app/components/ProgressBar";
 import { WalletInput } from "@/app/components/WalletInput";
 import { nftKey } from "@/lib/nft-cids";
+import { MAX_EXTRA_FOUNDATION_FACTORIES } from "@/lib/extra-foundation-factories";
+import { FOUNDATION_FACTORIES, FOUNDATION_FACTORY_SET } from "@/lib/foundation-factory";
+import { isEthereumAddress } from "@/lib/address";
 import {
   HEADER_ALCHEMY_API_KEY,
   HEADER_WEB3_STORAGE_TOKEN,
@@ -15,8 +18,33 @@ import type { ExtractedNftRow, NormalizedNft, NftListScope } from "@/types/nft";
 
 const DEFAULT_WALLET = "0x5e051c9106071baF1e4c087e3e06Fdd17396A433";
 
+const LOCAL_STORAGE_EXTRA_FOUNDATION_FACTORIES = "cidkeeper_extra_foundation_factories";
+
 const SUPPORT_BTC = "bc1qu46qju99mnamq2lw5zqdchddnuulnsq2wegzj0";
 const SUPPORT_ETH = "valipokkann.eth";
+
+const ALCHEMY_API_KEY_GUIDE_STEPS: { caption: string; file: string }[] = [
+  {
+    caption: "Open Alchemy, go to My Apps, and click Create new app.",
+    file: "Screenshot 2026-04-16 at 22.52.34.png",
+  },
+  {
+    caption: "Name your app (for example CIDKeeper), add a short description, set the use case to NFTs, then continue.",
+    file: "Screenshot 2026-04-16 at 22.53.12.png",
+  },
+  {
+    caption: "Choose chains: select Ethereum and the networks you need (for example Ethereum Mainnet).",
+    file: "Screenshot 2026-04-16 at 22.53.40.png",
+  },
+  {
+    caption: "Activate services: keep the recommended NFT-related APIs selected, then click Create app.",
+    file: "Screenshot 2026-04-16 at 22.54.50.png",
+  },
+  {
+    caption: "On your app’s setup page, copy the API key and paste it into Alchemy API key above, then save to this browser.",
+    file: "Screenshot 2026-04-16 at 22.55.40.png",
+  },
+];
 
 export default function Home() {
   const [wallet, setWallet] = useState(DEFAULT_WALLET);
@@ -34,6 +62,8 @@ export default function Home() {
   const [supportCopied, setSupportCopied] = useState<string | null>(null);
   const [localAlchemyKey, setLocalAlchemyKey] = useState("");
   const [localWeb3Token, setLocalWeb3Token] = useState("");
+  const [extraFoundationFactories, setExtraFoundationFactories] = useState<string[]>([]);
+  const [factoryAddressInput, setFactoryAddressInput] = useState("");
 
   const busy = phase !== "idle";
 
@@ -41,6 +71,17 @@ export default function Home() {
     try {
       setLocalAlchemyKey(window.localStorage.getItem(LOCAL_STORAGE_ALCHEMY_KEY) ?? "");
       setLocalWeb3Token(window.localStorage.getItem(LOCAL_STORAGE_WEB3_TOKEN) ?? "");
+      const raw = window.localStorage.getItem(LOCAL_STORAGE_EXTRA_FOUNDATION_FACTORIES);
+      if (raw) {
+        const parsed = JSON.parse(raw) as unknown;
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed
+            .filter((x): x is string => typeof x === "string")
+            .map((x) => x.trim().toLowerCase())
+            .filter((x) => isEthereumAddress(x) && !FOUNDATION_FACTORY_SET.has(x));
+          setExtraFoundationFactories([...new Set(cleaned)].slice(0, MAX_EXTRA_FOUNDATION_FACTORIES));
+        }
+      }
     } catch {
       // private mode or blocked storage
     }
@@ -80,6 +121,48 @@ export default function Home() {
     }
     setBanner(null);
   }, []);
+
+  const persistExtraFactories = useCallback((next: string[]) => {
+    setExtraFoundationFactories(next);
+    try {
+      if (next.length) window.localStorage.setItem(LOCAL_STORAGE_EXTRA_FOUNDATION_FACTORIES, JSON.stringify(next));
+      else window.localStorage.removeItem(LOCAL_STORAGE_EXTRA_FOUNDATION_FACTORIES);
+    } catch {
+      setBanner("Could not persist extra factory addresses (storage may be blocked).");
+    }
+  }, []);
+
+  const addExtraFactory = useCallback(() => {
+    const t = factoryAddressInput.trim();
+    if (!isEthereumAddress(t)) {
+      setBanner("Enter a valid 0x-prefixed 40-character factory address.");
+      return;
+    }
+    const l = t.toLowerCase();
+    if (FOUNDATION_FACTORY_SET.has(l)) {
+      setBanner("That address is already in the built-in Foundation factory list.");
+      return;
+    }
+    if (extraFoundationFactories.some((p) => p === l)) {
+      setBanner("That address is already in your extra factory list.");
+      return;
+    }
+    if (extraFoundationFactories.length >= MAX_EXTRA_FOUNDATION_FACTORIES) {
+      setBanner(`You can add at most ${MAX_EXTRA_FOUNDATION_FACTORIES} extra factory addresses.`);
+      return;
+    }
+    persistExtraFactories([...extraFoundationFactories, l]);
+    setFactoryAddressInput("");
+    setBanner(null);
+  }, [factoryAddressInput, extraFoundationFactories, persistExtraFactories]);
+
+  const removeExtraFactory = useCallback(
+    (addr: string) => {
+      persistExtraFactories(extraFoundationFactories.filter((x) => x !== addr));
+      setBanner(null);
+    },
+    [extraFoundationFactories, persistExtraFactories],
+  );
 
   const selectionPayload = useMemo(() => {
     const out: { contract: string; tokenId: string }[] = [];
@@ -176,8 +259,12 @@ export default function Home() {
     try {
       const factoryParam =
         nftScope === "created" ? `&includeFactoryCollections=${includeFactoryCollections ? "true" : "false"}` : "";
+      const extraFactoryParam =
+        nftScope === "created" && extraFoundationFactories.length > 0
+          ? `&extraFoundationFactories=${encodeURIComponent(extraFoundationFactories.join(","))}`
+          : "";
       const res = await fetch(
-        `/api/nfts?owner=${encodeURIComponent(wallet.trim())}&scope=${encodeURIComponent(nftScope)}${factoryParam}`,
+        `/api/nfts?owner=${encodeURIComponent(wallet.trim())}&scope=${encodeURIComponent(nftScope)}${factoryParam}${extraFactoryParam}`,
         { headers: { ...providerHeaders } },
       );
       const data = await res.json().catch(() => ({}));
@@ -202,7 +289,7 @@ export default function Home() {
       setPhase("idle");
       setProgress(null);
     }
-  }, [wallet, nftScope, includeFactoryCollections, runCidAnalysis, providerHeaders]);
+  }, [wallet, nftScope, includeFactoryCollections, extraFoundationFactories, runCidAnalysis, providerHeaders]);
 
   const analyze = useCallback(() => runCidAnalysis(nfts), [nfts, runCidAnalysis]);
 
@@ -232,7 +319,9 @@ export default function Home() {
           body: JSON.stringify({
             wallet: w,
             scope: nftScope,
-            ...(nftScope === "created" ? { includeFactoryCollections } : {}),
+            ...(nftScope === "created"
+              ? { includeFactoryCollections, extraFoundationFactories }
+              : {}),
             ...(selection?.length ? { selection } : {}),
           }),
         });
@@ -263,7 +352,7 @@ export default function Home() {
         setTimeout(() => setProgress(null), 400);
       }
     },
-    [wallet, selectionPayload, nftScope, includeFactoryCollections, providerHeaders],
+    [wallet, selectionPayload, nftScope, includeFactoryCollections, extraFoundationFactories, providerHeaders],
   );
 
   const pinSelected = useCallback(async () => {
@@ -316,10 +405,13 @@ export default function Home() {
       <header className="border-b border-zinc-200 bg-white/80 px-6 py-10 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/80">
         <div className="mx-auto flex max-w-5xl flex-col gap-3">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-400">CIDKeeper</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">Digital asset survival</h1>
+          <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+            Backup and preserve your NFTs before they disappear
+          </h1>
           <p className="max-w-2xl text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
-            Recover and preserve on-chain media by walking Alchemy metadata, verifying IPFS gateways, downloading exact bytes, and
-            exporting a ZIP with a manifest. Optional pinning re-uploads bytes to web3.storage (cannot pin-by-CID alone).
+            NFTs aren't permanent unless someone keeps the data alive. CIDKeeper scans your wallet, checks which assets are
+            still accessible, and lets you download the original files exactly as stored on IPFS. Keep a local backup or re-pin
+            them on your own terms.
           </p>
         </div>
       </header>
@@ -383,6 +475,39 @@ export default function Home() {
               </button>
             </div>
           </details>
+          <details className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50/80 px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900/40">
+            <summary className="cursor-pointer font-medium text-zinc-800 select-none dark:text-zinc-200">
+              How to get your Alchemy API key
+            </summary>
+            <p className="mt-3 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
+              CIDKeeper needs an Alchemy key to list NFTs and build ZIP exports. Create a dedicated app in your Alchemy account so
+              you can rotate or cap usage independently. Steps below follow the dashboard in order.
+            </p>
+            <p className="mt-2 text-xs">
+              <a
+                href="https://dashboard.alchemy.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-emerald-700 underline decoration-emerald-700/30 underline-offset-2 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300"
+              >
+                Open Alchemy dashboard
+              </a>
+            </p>
+            <ol className="mt-4 list-decimal space-y-6 pl-5 text-xs text-zinc-700 marker:font-semibold dark:text-zinc-300">
+              {ALCHEMY_API_KEY_GUIDE_STEPS.map((step, i) => (
+                <li key={step.file} className="pl-1">
+                  <p className="mb-2 leading-relaxed">{step.caption}</p>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`/${encodeURIComponent(step.file)}`}
+                    alt={`Alchemy setup step ${i + 1}: ${step.caption}`}
+                    className="max-h-[min(70vh,520px)] w-full max-w-3xl rounded-lg border border-zinc-200 object-contain object-left shadow-sm dark:border-zinc-700"
+                    loading="lazy"
+                  />
+                </li>
+              ))}
+            </ol>
+          </details>
           <div className="mt-4 flex flex-col gap-3 border-t border-zinc-200 pt-4 text-sm dark:border-zinc-800">
             <span className="font-medium text-zinc-700 dark:text-zinc-200">Wallet inventory</span>
             <div className="flex flex-col gap-2.5">
@@ -409,25 +534,81 @@ export default function Home() {
                 </span>
               </label>
               {nftScope === "created" ? (
-                <label className="ml-6 flex cursor-pointer items-start gap-2 text-zinc-600 dark:text-zinc-400">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 text-emerald-700 focus:ring-emerald-600"
-                    checked={includeFactoryCollections}
-                    onChange={(e) => {
-                      setIncludeFactoryCollections(e.target.checked);
-                      setNfts([]);
-                      setRows(null);
-                      setSelectedKeys(new Set());
-                    }}
-                  />
-                  <span>
-                    <span className="font-medium text-zinc-800 dark:text-zinc-200">Include factory-created collections</span>
-                    <span className="block text-xs text-zinc-500 dark:text-zinc-500">
-                      When on, scans known Foundation collection factories for txs you sent and adds those collection contracts.
+                <div className="ml-6 flex flex-col gap-3 border-l border-zinc-200 pl-3 dark:border-zinc-700">
+                  <label className="flex cursor-pointer items-start gap-2 text-zinc-600 dark:text-zinc-400">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 text-emerald-700 focus:ring-emerald-600"
+                      checked={includeFactoryCollections}
+                      onChange={(e) => {
+                        setIncludeFactoryCollections(e.target.checked);
+                        setNfts([]);
+                        setRows(null);
+                        setSelectedKeys(new Set());
+                      }}
+                    />
+                    <span>
+                      <span className="font-medium text-zinc-800 dark:text-zinc-200">Include factory-created collections</span>
+                      <span className="block text-xs text-zinc-500 dark:text-zinc-500">
+                        When on, scans the Foundation factory contracts below (plus any you add) for txs you sent and adds those
+                        collection contracts when logs match Foundation collection-created events.
+                      </span>
                     </span>
-                  </span>
-                </label>
+                  </label>
+                  <div className="rounded-lg border border-zinc-200 bg-zinc-50/90 p-3 text-xs dark:border-zinc-700 dark:bg-zinc-900/50">
+                    <p className="font-medium text-zinc-800 dark:text-zinc-200">Built-in Foundation factory contracts</p>
+                    <ul className="mt-2 space-y-1 font-mono text-[11px] leading-relaxed text-zinc-700 dark:text-zinc-300">
+                      {FOUNDATION_FACTORIES.map((addr) => (
+                        <li key={addr}>{addr}</li>
+                      ))}
+                    </ul>
+                    <p className="mt-3 font-medium text-zinc-800 dark:text-zinc-200">Additional factory addresses</p>
+                    <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+                      Add other collection-factory contracts that emit the same indexed event layout. Stored only in this browser
+                      (localStorage), up to {MAX_EXTRA_FOUNDATION_FACTORIES} addresses. Used when the option above is enabled.
+                    </p>
+                    <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <input
+                        type="text"
+                        value={factoryAddressInput}
+                        onChange={(e) => setFactoryAddressInput(e.target.value)}
+                        disabled={busy}
+                        placeholder="0x… factory contract"
+                        className="min-w-0 flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-2 font-mono text-[11px] text-zinc-900 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
+                      />
+                      <button
+                        type="button"
+                        onClick={addExtraFactory}
+                        disabled={busy}
+                        className="shrink-0 rounded-lg bg-zinc-900 px-3 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                      >
+                        Add factory
+                      </button>
+                    </div>
+                    {extraFoundationFactories.length > 0 ? (
+                      <ul className="mt-3 space-y-1.5">
+                        {extraFoundationFactories.map((addr) => (
+                          <li
+                            key={addr}
+                            className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-zinc-200 bg-white px-2 py-1.5 font-mono text-[11px] text-zinc-800 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-200"
+                          >
+                            <span className="min-w-0 break-all">{addr}</span>
+                            <button
+                              type="button"
+                              onClick={() => removeExtraFactory(addr)}
+                              disabled={busy}
+                              className="shrink-0 rounded px-2 py-0.5 text-[11px] font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-950/40"
+                            >
+                              Remove
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-2 text-zinc-500 dark:text-zinc-500">No extra factories saved yet.</p>
+                    )}
+                  </div>
+                </div>
               ) : null}
               <label className="flex cursor-pointer items-start gap-2 text-zinc-600 dark:text-zinc-400">
                 <input

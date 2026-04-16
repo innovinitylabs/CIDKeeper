@@ -3,6 +3,7 @@ import { getNftsForOwner } from "@/lib/alchemy";
 import { alchemyApiKeyFromRequest } from "@/lib/user-provider-keys";
 import type { NftListScope } from "@/types/nft";
 import { isEthereumAddress } from "@/lib/address";
+import { parseExtraFoundationFactoriesQueryParam } from "@/lib/extra-foundation-factories";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -32,8 +33,14 @@ export async function GET(req: Request) {
       );
     }
 
-    const { nfts, pageErrors } = await getNftsForOwner(owner, key, { scope, includeFactoryCollections });
-    return NextResponse.json({ nfts, pageErrors, scope, includeFactoryCollections });
+    const extraFoundationFactories = parseExtraFoundationFactoriesQueryParam(searchParams.get("extraFoundationFactories"));
+
+    const { nfts, pageErrors } = await getNftsForOwner(owner, key, {
+      scope,
+      includeFactoryCollections,
+      extraFoundationFactories,
+    });
+    return NextResponse.json({ nfts, pageErrors, scope, includeFactoryCollections, extraFoundationFactories });
   } catch (e) {
     const message = e instanceof Error ? e.message : "unknown_error";
     return NextResponse.json({ error: "nfts_failed", message, nfts: [], pageErrors: [message] }, { status: 200 });

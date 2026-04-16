@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getNftsForOwner } from "@/lib/alchemy";
 import { isEthereumAddress } from "@/lib/address";
+import { sanitizeExtraFoundationFactories } from "@/lib/extra-foundation-factories";
 import { alchemyApiKeyFromRequest } from "@/lib/user-provider-keys";
 import { downloadExactBytes, extensionFromContentType, limitConcurrency5 } from "@/lib/ipfs";
 import { extractCidsFromNft, normalizeTokenId, pickPrimaryExport } from "@/lib/nft-cids";
@@ -15,6 +16,7 @@ const BodySchema = z.object({
   wallet: z.string(),
   scope: z.enum(["created", "owned", "mintedBy", "all"]).optional(),
   includeFactoryCollections: z.boolean().optional(),
+  extraFoundationFactories: z.array(z.string()).optional(),
   selection: z
     .array(
       z.object({
@@ -66,7 +68,12 @@ export async function POST(req: Request) {
 
     const listScope: NftListScope = parsed.data.scope === "owned" || parsed.data.scope === "all" ? "owned" : "created";
     const includeFactoryCollections = parsed.data.includeFactoryCollections !== false;
-    const fetched = await getNftsForOwner(wallet, key, { scope: listScope, includeFactoryCollections });
+    const extraFoundationFactories = sanitizeExtraFoundationFactories(parsed.data.extraFoundationFactories);
+    const fetched = await getNftsForOwner(wallet, key, {
+      scope: listScope,
+      includeFactoryCollections,
+      extraFoundationFactories,
+    });
     const selected = fetched.nfts.filter((n) => matchesSelection(n, parsed.data.selection));
 
     if (selected.length > maxNfts) {
