@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { detectPrimaryStorage, nftKey } from "@/lib/nft-cids";
+import { detectPrimaryStorage, extractCidsFromNft, nftKey, previewUrlFromNft } from "@/lib/nft-cids";
 import type { ExtractedNftRow, NormalizedNft } from "@/types/nft";
 
 type Props = {
@@ -72,6 +72,7 @@ export function NFTGrid({ nfts, rows, selectedKeys, onToggle, onToggleAll }: Pro
           const cid = row?.primaryCID ?? "—";
           const storage = detectPrimaryStorage(nft);
           const health = row?.health ?? (storage === "arweave" ? "arweave" : "dead");
+          const previewUrl = row?.previewUrl ?? previewUrlFromNft(nft, extractCidsFromNft(nft));
           const rawNft = JSON.stringify(nft, null, 2);
           const rawRow = row ? JSON.stringify(row, null, 2) : null;
 
@@ -89,9 +90,9 @@ export function NFTGrid({ nfts, rows, selectedKeys, onToggle, onToggleAll }: Pro
                         className="mt-1 rounded border-zinc-300 text-emerald-700 focus:ring-emerald-600 dark:border-zinc-600"
                       />
                       <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900">
-                        {row?.previewUrl ? (
+                        {previewUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={row.previewUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+                          <img src={previewUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center text-[10px] text-zinc-400">No preview</div>
                         )}

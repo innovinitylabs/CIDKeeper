@@ -71,7 +71,9 @@ export function previewUrlForImageCid(imageCID: string | null): string | null {
 export function previewUrlFromNft(nft: NormalizedNft, cids: ExtractedCids): string | null {
   if (cids.imageCID) return previewUrlForImageCid(cids.imageCID);
   const meta = nft.metadata;
-  const imageRaw = meta ? pickUriString(meta.image) : null;
+  const imageRaw = meta
+    ? pickUriString(meta.image) ?? pickUriString(meta.image_url ?? meta.imageUrl)
+    : null;
   if (imageRaw && (imageRaw.startsWith("http://") || imageRaw.startsWith("https://"))) {
     return imageRaw;
   }

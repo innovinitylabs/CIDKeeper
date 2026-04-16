@@ -108,3 +108,21 @@ test("normalizeContractNfts keeps raw tokenUri and raw metadata from contract re
   });
   assert.equal(nfts[0]?.name, "Forty Two");
 });
+
+test("normalizeContractNfts preserves top-level image urls for preview fallback", () => {
+  const nfts = normalizeContractNfts([
+    {
+      contract: { address: "0xabc0000000000000000000000000000000000001" },
+      tokenId: "77",
+      metadata: {},
+      image: {
+        originalUrl: "https://arweave.net/image-77",
+      },
+    },
+  ]);
+
+  assert.equal(nfts.length, 1);
+  assert.deepEqual(nfts[0]?.metadata, {
+    image: "https://arweave.net/image-77",
+  });
+});

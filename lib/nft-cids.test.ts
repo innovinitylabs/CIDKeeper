@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { detectPrimaryStorage, extractCidsFromNft } from "@/lib/nft-cids";
+import { detectPrimaryStorage, extractCidsFromNft, previewUrlFromNft } from "@/lib/nft-cids";
 import type { NormalizedNft } from "@/types/nft";
 
 test("detectPrimaryStorage reports arweave when metadata points to arweave assets", () => {
@@ -36,4 +36,36 @@ test("detectPrimaryStorage prefers ipfs when an IPFS CID exists", () => {
   };
 
   assert.equal(detectPrimaryStorage(nft), "ipfs");
+});
+
+test("previewUrlFromNft uses metadata image http url when no IPFS CID exists", () => {
+  const nft: NormalizedNft = {
+    contractAddress: "0xabc0000000000000000000000000000000000001",
+    tokenId: "3",
+    tokenURI: null,
+    metadata: {
+      image: {
+        url: "https://arweave.net/image-3",
+      },
+    },
+    name: "Preview NFT",
+  };
+
+  const cids = extractCidsFromNft(nft);
+  assert.equal(previewUrlFromNft(nft, cids), "https://arweave.net/image-3");
+});
+
+test("previewUrlFromNft falls back to image_url when image is missing", () => {
+  const nft: NormalizedNft = {
+    contractAddress: "0xabc0000000000000000000000000000000000001",
+    tokenId: "4",
+    tokenURI: null,
+    metadata: {
+      image_url: "https://arweave.net/from-image-url",
+    },
+    name: "URL NFT",
+  };
+
+  const cids = extractCidsFromNft(nft);
+  assert.equal(previewUrlFromNft(nft, cids), "https://arweave.net/from-image-url");
 });
