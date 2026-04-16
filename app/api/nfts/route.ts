@@ -12,6 +12,8 @@ export async function GET(req: Request) {
     const owner = searchParams.get("owner") ?? "";
     const scopeParam = searchParams.get("scope");
     const scope: NftListScope = scopeParam === "owned" || scopeParam === "all" ? "owned" : "created";
+    const includeFactoryParam = searchParams.get("includeFactoryCollections");
+    const includeFactoryCollections = includeFactoryParam !== "false";
 
     if (!isEthereumAddress(owner)) {
       return NextResponse.json({ error: "invalid_wallet", message: "Owner must be a 0x-prefixed 40-hex address." }, { status: 400 });
@@ -22,8 +24,8 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "server_misconfigured", message: "ALCHEMY_API_KEY is not set." }, { status: 500 });
     }
 
-    const { nfts, pageErrors } = await getNftsForOwner(owner, key, { scope });
-    return NextResponse.json({ nfts, pageErrors, scope });
+    const { nfts, pageErrors } = await getNftsForOwner(owner, key, { scope, includeFactoryCollections });
+    return NextResponse.json({ nfts, pageErrors, scope, includeFactoryCollections });
   } catch (e) {
     const message = e instanceof Error ? e.message : "unknown_error";
     return NextResponse.json({ error: "nfts_failed", message, nfts: [], pageErrors: [message] }, { status: 200 });

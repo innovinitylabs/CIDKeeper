@@ -1,8 +1,11 @@
 import {
   collectCreatedContractAddresses,
+  collectFoundationFactoryContractAddresses,
   fetchCreatedNftsFromContracts,
   filterCreatedNftContracts,
 } from "@/lib/created-by-wallet";
+import { collectCreatorMintKeys, hydrateNftsFromKeys } from "@/lib/minted-by-wallet";
+import { nftKey } from "@/lib/nft-cids";
 import type { NormalizedNft, NftListScope } from "@/types/nft";
 
 export type { NftListScope } from "@/types/nft";
@@ -51,6 +54,33 @@ export type FetchNftsResult = {
   pageErrors: string[];
 };
 
+function scoreNormalizedNft(n: NormalizedNft): number {
+  let s = 0;
+  if (n.tokenURI) s += 2;
+  if (n.metadata && Object.keys(n.metadata).length > 0) s += 2;
+  if (n.name) s += 1;
+  return s;
+}
+
+function mergeCreatedNftSources(contractNfts: NormalizedNft[], mintNfts: NormalizedNft[]): NormalizedNft[] {
+  const byKey = new Map<string, NormalizedNft>();
+  for (const n of contractNfts) {
+    byKey.set(nftKey(n), n);
+  }
+  for (const n of mintNfts) {
+    const k = nftKey(n);
+    const existing = byKey.get(k);
+    if (!existing) {
+      byKey.set(k, n);
+      continue;
+    }
+    if (scoreNormalizedNft(n) > scoreNormalizedNft(existing)) {
+      byKey.set(k, n);
+    }
+  }
+  return [...byKey.values()];
+}
+
 async function fetchAllOwned(owner: string, apiKey: string): Promise<FetchNftsResult> {
   const nfts: NormalizedNft[] = [];
   const pageErrors: string[] = [];
@@ -94,23 +124,61 @@ async function fetchAllOwned(owner: string, apiKey: string): Promise<FetchNftsRe
 export async function getNftsForOwner(
   owner: string,
   apiKey: string,
-  options?: { scope?: NftListScope },
+  options?: { scope?: NftListScope; includeFactoryCollections?: boolean },
 ): Promise<FetchNftsResult> {
   const scope: NftListScope = options?.scope ?? "created";
+  const includeFactoryCollections = options?.includeFactoryCollections !== false;
 
   if (scope === "owned") {
     return fetchAllOwned(owner, apiKey);
   }
 
   try {
-    const { contracts: deployedContracts, errors: deploymentErrors } = await collectCreatedContractAddresses(apiKey, owner);
+    const deploymentPromise = collectCreatedContractAddresses(apiKey, owner);
+    const factoryPromise = includeFactoryCollections
+      ? collectFoundationFactoryContractAddresses(apiKey, owner)
+      : Promise.resolve({ contracts: [] as string[], errors: [] as string[] });
+
+    const [{ contracts: deployedContracts, errors: deploymentErrors }, { contracts: factoryContracts, errors: factoryErrors }] =
+      await Promise.all([deploymentPromise, factoryPromise]);
+
+    const trustedFactoryContracts = new Set<string>();
+    for (const c of factoryContracts) {
+      trustedFactoryContracts.add(c.toLowerCase());
+    }
+
+    const mergedContractAddresses = [
+      ...new Set([...deployedContracts, ...factoryContracts].map((a) => a.toLowerCase())),
+    ];
+
     const { contracts: nftContracts, errors: contractErrors } = await filterCreatedNftContracts(
       apiKey,
       owner,
-      deployedContracts,
+      mergedContractAddresses,
+      { trustedAddresses: trustedFactoryContracts },
     );
-    const { nfts, errors: nftErrors } = await fetchCreatedNftsFromContracts(apiKey, nftContracts);
-    return { nfts, pageErrors: [...deploymentErrors, ...contractErrors, ...nftErrors] };
+
+    const enumeratedNftContracts = new Set(nftContracts.map((a) => a.toLowerCase()));
+
+    const [{ nfts: contractNfts, errors: nftErrors }, { keys: creatorMintKeys, errors: mintKeyErrors }] = await Promise.all([
+      fetchCreatedNftsFromContracts(apiKey, nftContracts),
+      collectCreatorMintKeys(apiKey, owner, { enumeratedNftContracts }),
+    ]);
+
+    const { nfts: mintNfts, errors: hydrateErrors } = await hydrateNftsFromKeys(apiKey, creatorMintKeys);
+
+    const nfts = mergeCreatedNftSources(contractNfts, mintNfts);
+
+    const pageErrors = [
+      ...deploymentErrors,
+      ...(includeFactoryCollections ? factoryErrors : []),
+      ...contractErrors,
+      ...nftErrors,
+      ...mintKeyErrors,
+      ...hydrateErrors,
+    ];
+
+    return { nfts, pageErrors };
   } catch (e) {
     const message = e instanceof Error ? e.message : "created_filter_failed";
     return { nfts: [], pageErrors: [message] };

@@ -25,6 +25,22 @@ test("collectDeployedContractAddresses keeps only deployment receipts with contr
   ]);
 });
 
+test("filterSupportedCreatedContracts allows trusted addresses when Alchemy deployer is the factory", () => {
+  const wallet = "0x9999999999999999999999999999999999999999";
+  const trusted = new Set(["0xabc0000000000000000000000000000000000001"]);
+  const contracts = [
+    {
+      address: "0xabc0000000000000000000000000000000000001",
+      tokenType: "ERC721",
+      contractDeployer: "0x3b612a5b49e025a6e4ba4ee4fb1ef46d13588059",
+    },
+  ];
+
+  assert.deepEqual(filterSupportedCreatedContracts(wallet, contracts, { trustedAddresses: trusted }), [
+    "0xabc0000000000000000000000000000000000001",
+  ]);
+});
+
 test("filterSupportedCreatedContracts keeps only NFT contracts deployed by the wallet", () => {
   const wallet = "0x9999999999999999999999999999999999999999";
   const contracts = [

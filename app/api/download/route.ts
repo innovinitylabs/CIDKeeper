@@ -13,6 +13,7 @@ export const maxDuration = 60;
 const BodySchema = z.object({
   wallet: z.string(),
   scope: z.enum(["created", "owned", "mintedBy", "all"]).optional(),
+  includeFactoryCollections: z.boolean().optional(),
   selection: z
     .array(
       z.object({
@@ -56,7 +57,8 @@ export async function POST(req: Request) {
     const maxNfts = Math.max(1, Number(process.env.MAX_NFTS_FOR_ZIP ?? 150) || 150);
 
     const listScope: NftListScope = parsed.data.scope === "owned" || parsed.data.scope === "all" ? "owned" : "created";
-    const fetched = await getNftsForOwner(wallet, key, { scope: listScope });
+    const includeFactoryCollections = parsed.data.includeFactoryCollections !== false;
+    const fetched = await getNftsForOwner(wallet, key, { scope: listScope, includeFactoryCollections });
     const selected = fetched.nfts.filter((n) => matchesSelection(n, parsed.data.selection));
 
     if (selected.length > maxNfts) {

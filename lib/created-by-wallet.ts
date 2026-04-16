@@ -1,4 +1,7 @@
 import { createConcurrencyLimiter } from "@/lib/ipfs";
+import { fetchWithAlchemyRetry } from "@/lib/alchemy-fetch";
+import { extractFoundationFactoryCollectionAddresses, FOUNDATION_FACTORIES } from "@/lib/foundation-factory";
+import type { ReceiptLog } from "@/lib/evm-mint-receipt";
 import { nftKey } from "@/lib/nft-cids";
 import type { NormalizedNft } from "@/types/nft";
 
@@ -6,11 +9,13 @@ type RpcJson<T> = { result?: T; error?: { message?: string } };
 
 type ExternalTransfer = {
   hash?: string | null;
+  from?: string | null;
   to?: string | null;
 };
 
 type TxReceipt = {
   contractAddress?: string | null;
+  logs?: ReceiptLog[];
 };
 
 type ContractMetadata = {
@@ -81,7 +86,7 @@ function normalizeOne(nft: AlchemyContractNft): NormalizedNft | null {
 }
 
 async function alchemyRpc<R>(apiKey: string, method: string, params: unknown[]): Promise<RpcJson<R>> {
-  const res = await fetch(`https://eth-mainnet.g.alchemy.com/v2/${apiKey}`, {
+  const res = await fetchWithAlchemyRetry(`https://eth-mainnet.g.alchemy.com/v2/${apiKey}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: Date.now(), method, params }),
@@ -100,6 +105,86 @@ async function fetchDeploymentReceipt(apiKey: string, hash: string): Promise<TxR
   } catch {
     return null;
   }
+}
+
+export async function collectFoundationFactoryContractAddresses(
+  apiKey: string,
+  wallet: string,
+): Promise<{ contracts: string[]; errors: string[] }> {
+  const errors: string[] = [];
+  const walletLower = wallet.toLowerCase();
+  const hashSet = new Set<string>();
+  const limit = createConcurrencyLimiter(4);
+
+  for (const factory of FOUNDATION_FACTORIES) {
+    const factoryLower = factory.toLowerCase();
+    let pageKey: string | undefined;
+
+    for (let page = 0; page < 5000; page++) {
+      const params: Record<string, unknown> = {
+        fromBlock: "0x0",
+        toBlock: "latest",
+        fromAddress: wallet,
+        toAddress: factory,
+        category: ["external", "internal"],
+        excludeZeroValue: false,
+        withMetadata: false,
+        maxCount: "0x3e8",
+        order: "asc",
+      };
+      if (pageKey) params.pageKey = pageKey;
+
+      try {
+        const json = await alchemyRpc<{ transfers?: ExternalTransfer[]; pageKey?: string }>(
+          apiKey,
+          "alchemy_getAssetTransfers",
+          [params],
+        );
+        const pageTransfers = Array.isArray(json.result?.transfers) ? json.result?.transfers : [];
+        for (const t of pageTransfers) {
+          const to = typeof t.to === "string" ? t.to.toLowerCase() : null;
+          if (to !== factoryLower) continue;
+          const from = typeof t.from === "string" ? t.from.toLowerCase() : null;
+          if (from && from !== walletLower) continue;
+          const h = t.hash;
+          if (typeof h === "string" && h.length) hashSet.add(h);
+        }
+        const next = json.result?.pageKey;
+        if (!next) break;
+        pageKey = String(next);
+      } catch (e) {
+        errors.push(e instanceof Error ? e.message : "foundation_factory_transfer_page_failed");
+        break;
+      }
+    }
+  }
+
+  const receiptCache = new Map<string, TxReceipt | null>();
+  const hashes = [...hashSet];
+
+  await Promise.all(
+    hashes.map((hash) =>
+      limit(async () => {
+        if (receiptCache.has(hash)) return;
+        receiptCache.set(hash, await fetchDeploymentReceipt(apiKey, hash));
+      }),
+    ),
+  );
+
+  const seenAddr = new Set<string>();
+  const contracts: string[] = [];
+
+  for (const hash of hashes) {
+    const rec = receiptCache.get(hash) ?? null;
+    const found = extractFoundationFactoryCollectionAddresses(rec?.logs, walletLower);
+    for (const a of found) {
+      if (seenAddr.has(a)) continue;
+      seenAddr.add(a);
+      contracts.push(a);
+    }
+  }
+
+  return { contracts, errors };
 }
 
 export function collectDeployedContractAddresses(
@@ -122,17 +207,23 @@ export function collectDeployedContractAddresses(
   return out;
 }
 
-export function filterSupportedCreatedContracts(wallet: string, contracts: ContractMetadata[]): string[] {
+export function filterSupportedCreatedContracts(
+  wallet: string,
+  contracts: ContractMetadata[],
+  options?: { trustedAddresses?: Set<string> },
+): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
   const walletLower = wallet.toLowerCase();
+  const trusted = options?.trustedAddresses ?? new Set<string>();
 
   for (const contract of contracts) {
     const address = contract.address?.toLowerCase();
     const tokenType = (contract.tokenType ?? "").toUpperCase();
     const deployer = contract.contractDeployer?.toLowerCase();
     if (!address || seen.has(address)) continue;
-    if (deployer && deployer !== walletLower) continue;
+    const isTrusted = trusted.has(address);
+    if (!isTrusted && deployer && deployer !== walletLower) continue;
     if (tokenType !== "ERC721" && tokenType !== "ERC1155") continue;
     seen.add(address);
     out.push(address);
@@ -158,7 +249,7 @@ export async function collectCreatedContractAddresses(
   const errors: string[] = [];
   const transfers: ExternalTransfer[] = [];
   const receiptCache = new Map<string, TxReceipt | null>();
-  const limit = createConcurrencyLimiter(8);
+  const limit = createConcurrencyLimiter(4);
   let pageKey: string | undefined;
 
   for (let page = 0; page < 5000; page++) {
@@ -209,10 +300,11 @@ export async function filterCreatedNftContracts(
   apiKey: string,
   wallet: string,
   contractAddresses: string[],
+  options?: { trustedAddresses?: Set<string> },
 ): Promise<{ contracts: string[]; errors: string[] }> {
   const errors: string[] = [];
   const meta: ContractMetadata[] = [];
-  const limit = createConcurrencyLimiter(8);
+  const limit = createConcurrencyLimiter(4);
 
   await Promise.all(
     contractAddresses.map((address) =>
@@ -220,7 +312,7 @@ export async function filterCreatedNftContracts(
         try {
           const url = new URL(`https://eth-mainnet.g.alchemy.com/nft/v3/${apiKey}/getContractMetadata`);
           url.searchParams.set("contractAddress", address);
-          const res = await fetch(url.toString(), { method: "GET", cache: "no-store" });
+          const res = await fetchWithAlchemyRetry(url.toString(), { method: "GET", cache: "no-store" });
           if (!res.ok) {
             errors.push(`contract_metadata_http_${res.status}_${address.slice(0, 10)}`);
             return;
@@ -234,7 +326,10 @@ export async function filterCreatedNftContracts(
     ),
   );
 
-  return { contracts: filterSupportedCreatedContracts(wallet, meta), errors };
+  return {
+    contracts: filterSupportedCreatedContracts(wallet, meta, { trustedAddresses: options?.trustedAddresses }),
+    errors,
+  };
 }
 
 export async function fetchCreatedNftsFromContracts(
@@ -255,7 +350,7 @@ export async function fetchCreatedNftsFromContracts(
       if (startToken) url.searchParams.set("startToken", startToken);
 
       try {
-        const res = await fetch(url.toString(), { method: "GET", cache: "no-store" });
+        const res = await fetchWithAlchemyRetry(url.toString(), { method: "GET", cache: "no-store" });
         if (!res.ok) {
           errors.push(`contract_nfts_http_${res.status}_${address.slice(0, 10)}`);
           break;

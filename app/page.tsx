@@ -20,6 +20,7 @@ export default function Home() {
   const [phase, setPhase] = useState<"idle" | "nfts" | "extract" | "zip" | "pin">("idle");
   const [progress, setProgress] = useState<number | null>(null);
   const [nftScope, setNftScope] = useState<NftListScope>("created");
+  const [includeFactoryCollections, setIncludeFactoryCollections] = useState(true);
 
   const busy = phase !== "idle";
 
@@ -74,8 +75,10 @@ export default function Home() {
     setPhase("nfts");
     setProgress(null);
     try {
+      const factoryParam =
+        nftScope === "created" ? `&includeFactoryCollections=${includeFactoryCollections ? "true" : "false"}` : "";
       const res = await fetch(
-        `/api/nfts?owner=${encodeURIComponent(wallet.trim())}&scope=${encodeURIComponent(nftScope)}`,
+        `/api/nfts?owner=${encodeURIComponent(wallet.trim())}&scope=${encodeURIComponent(nftScope)}${factoryParam}`,
       );
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -95,7 +98,7 @@ export default function Home() {
       setPhase("idle");
       setProgress(null);
     }
-  }, [wallet, nftScope]);
+  }, [wallet, nftScope, includeFactoryCollections]);
 
   const analyze = useCallback(async () => {
     if (!nfts.length) return;
@@ -149,6 +152,7 @@ export default function Home() {
           body: JSON.stringify({
             wallet: w,
             scope: nftScope,
+            ...(nftScope === "created" ? { includeFactoryCollections } : {}),
             ...(selection?.length ? { selection } : {}),
           }),
         });
@@ -179,7 +183,7 @@ export default function Home() {
         setTimeout(() => setProgress(null), 400);
       }
     },
-    [wallet, selectionPayload, nftScope],
+    [wallet, selectionPayload, nftScope, includeFactoryCollections],
   );
 
   const pinSelected = useCallback(async () => {
@@ -262,11 +266,33 @@ export default function Home() {
                 <span>
                   <span className="font-medium text-zinc-800 dark:text-zinc-200">Created by this wallet</span>
                   <span className="block text-xs text-zinc-500 dark:text-zinc-500">
-                    Finds contracts deployed by your wallet, keeps only ERC721/ERC1155 collections, then enumerates every NFT
-                    in those contracts. This includes items now owned by other wallets too.
+                    Combines contracts your wallet deployed, Foundation factory-created collections (optional), and
+                    transaction-proven mints (ERC721/1155 Transfer from the zero address in txs you sent). Enumerates NFTs
+                    from discovered contracts and merges with shared-contract mints. Not ownership-based.
                   </span>
                 </span>
               </label>
+              {nftScope === "created" ? (
+                <label className="ml-6 flex cursor-pointer items-start gap-2 text-zinc-600 dark:text-zinc-400">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 text-emerald-700 focus:ring-emerald-600"
+                    checked={includeFactoryCollections}
+                    onChange={(e) => {
+                      setIncludeFactoryCollections(e.target.checked);
+                      setNfts([]);
+                      setRows(null);
+                      setSelectedKeys(new Set());
+                    }}
+                  />
+                  <span>
+                    <span className="font-medium text-zinc-800 dark:text-zinc-200">Include factory-created collections</span>
+                    <span className="block text-xs text-zinc-500 dark:text-zinc-500">
+                      When on, scans known Foundation collection factories for txs you sent and adds those collection contracts.
+                    </span>
+                  </span>
+                </label>
+              ) : null}
               <label className="flex cursor-pointer items-start gap-2 text-zinc-600 dark:text-zinc-400">
                 <input
                   type="radio"
@@ -316,6 +342,11 @@ export default function Home() {
                 }
                 value={progress}
               />
+              {phase === "nfts" ? (
+                <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-500">
+                  In progress: waiting on the server for Alchemy; keep this tab open until the list or an error appears.
+                </p>
+              ) : null}
             </div>
           ) : null}
         </section>
