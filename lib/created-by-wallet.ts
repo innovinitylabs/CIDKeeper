@@ -25,6 +25,10 @@ type AlchemyContractNft = {
   tokenUri?: string;
   tokenURI?: string;
   metadata?: Record<string, unknown> | null;
+  raw?: {
+    tokenUri?: string | null;
+    metadata?: Record<string, unknown> | null;
+  } | null;
   title?: string;
   name?: string;
 };
@@ -47,9 +51,13 @@ function normalizeOne(nft: AlchemyContractNft): NormalizedNft | null {
   const contractAddress = nft.contract?.address?.toLowerCase();
   const tokenId = nft.tokenId;
   if (!contractAddress || !tokenId) return null;
-  const tokenURI = nft.tokenUri ?? nft.tokenURI ?? null;
+  const tokenURI = nft.tokenUri ?? nft.tokenURI ?? nft.raw?.tokenUri ?? null;
   const metadata =
-    nft.metadata && typeof nft.metadata === "object" ? (nft.metadata as Record<string, unknown>) : null;
+    nft.metadata && typeof nft.metadata === "object"
+      ? (nft.metadata as Record<string, unknown>)
+      : nft.raw?.metadata && typeof nft.raw.metadata === "object"
+        ? (nft.raw.metadata as Record<string, unknown>)
+        : null;
   return {
     contractAddress,
     tokenId,

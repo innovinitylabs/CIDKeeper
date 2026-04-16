@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { checkCIDHealth, limitConcurrency5 } from "@/lib/ipfs";
 import {
+  detectPrimaryStorage,
   extractCidsFromNft,
   nftKey,
   pickPrimaryExport,
@@ -59,15 +60,16 @@ export async function POST(req: Request) {
 
     const rows: ExtractedNftRow[] = nfts.map((nft) => {
       const cids = extractCidsFromNft(nft);
+      const storage = detectPrimaryStorage(nft);
       const primary = pickPrimaryExport(cids);
       const errors: string[] = [];
       const primaryCID = primary.cid;
       const healthResult = primaryCID ? healthByCid.get(primaryCID) : undefined;
-      const health = primaryCID ? (healthResult?.status ?? "dead") : "dead";
+      const health = primaryCID ? (healthResult?.status ?? "dead") : storage === "arweave" ? "arweave" : "dead";
       const healthMs = healthResult?.ms ?? null;
 
       if (!primaryCID) {
-        errors.push("no_ipfs_cid_found_for_primary_asset");
+        errors.push(storage === "arweave" ? "primary_asset_uses_arweave_not_ipfs" : "no_ipfs_cid_found_for_primary_asset");
       }
 
       return {

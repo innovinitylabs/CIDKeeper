@@ -7,8 +7,10 @@ import { WalletInput } from "@/app/components/WalletInput";
 import { nftKey } from "@/lib/nft-cids";
 import type { ExtractedNftRow, NormalizedNft, NftListScope } from "@/types/nft";
 
+const DEFAULT_WALLET = "0x5e051c9106071baF1e4c087e3e06Fdd17396A433";
+
 export default function Home() {
-  const [wallet, setWallet] = useState("");
+  const [wallet, setWallet] = useState(DEFAULT_WALLET);
   const [nfts, setNfts] = useState<NormalizedNft[]>([]);
   const [rows, setRows] = useState<ExtractedNftRow[] | null>(null);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => new Set());
@@ -50,6 +52,17 @@ export default function Home() {
       }
       return next;
     });
+  }, []);
+
+  const clearAll = useCallback(() => {
+    setWallet("");
+    setNfts([]);
+    setRows(null);
+    setSelectedKeys(new Set());
+    setBanner(null);
+    setPinMessage(null);
+    setPhase("idle");
+    setProgress(null);
   }, []);
 
   const fetchNfts = useCallback(async () => {
@@ -229,7 +242,7 @@ export default function Home() {
 
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-6 py-10">
         <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-          <WalletInput value={wallet} onChange={setWallet} onSubmit={fetchNfts} disabled={busy} />
+          <WalletInput value={wallet} onChange={setWallet} onSubmit={fetchNfts} onClear={clearAll} disabled={busy} />
           <div className="mt-4 flex flex-col gap-3 border-t border-zinc-200 pt-4 text-sm dark:border-zinc-800">
             <span className="font-medium text-zinc-700 dark:text-zinc-200">Wallet inventory</span>
             <div className="flex flex-col gap-2.5">

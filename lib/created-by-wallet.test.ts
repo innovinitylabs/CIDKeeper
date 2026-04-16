@@ -82,3 +82,29 @@ test("normalizeContractNfts dedupes contract tokens across contract pages", () =
     ],
   );
 });
+
+test("normalizeContractNfts keeps raw tokenUri and raw metadata from contract responses", () => {
+  const nfts = normalizeContractNfts([
+    {
+      contract: { address: "0xabc0000000000000000000000000000000000001" },
+      tokenId: "42",
+      raw: {
+        tokenUri: "ipfs://metadata-42",
+        metadata: {
+          image: "ipfs://image-42",
+          animation_url: "ipfs://anim-42",
+          name: "Forty Two",
+        },
+      },
+    },
+  ]);
+
+  assert.equal(nfts.length, 1);
+  assert.equal(nfts[0]?.tokenURI, "ipfs://metadata-42");
+  assert.deepEqual(nfts[0]?.metadata, {
+    image: "ipfs://image-42",
+    animation_url: "ipfs://anim-42",
+    name: "Forty Two",
+  });
+  assert.equal(nfts[0]?.name, "Forty Two");
+});

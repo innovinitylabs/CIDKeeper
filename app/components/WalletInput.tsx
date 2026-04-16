@@ -4,10 +4,11 @@ type Props = {
   value: string;
   onChange: (v: string) => void;
   onSubmit: () => void;
+  onClear: () => void;
   disabled?: boolean;
 };
 
-export function WalletInput({ value, onChange, onSubmit, disabled }: Props) {
+export function WalletInput({ value, onChange, onSubmit, onClear, disabled }: Props) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
       <label className="flex flex-1 flex-col gap-1.5 text-sm">
@@ -29,6 +30,14 @@ export function WalletInput({ value, onChange, onSubmit, disabled }: Props) {
         className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg bg-emerald-700 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-emerald-600 dark:hover:bg-emerald-500"
       >
         Fetch NFTs
+      </button>
+      <button
+        type="button"
+        onClick={onClear}
+        disabled={disabled}
+        className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg border border-zinc-300 bg-white px-5 text-sm font-semibold text-zinc-700 shadow-sm transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-900"
+      >
+        Clear
       </button>
     </div>
   );
