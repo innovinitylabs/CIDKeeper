@@ -808,15 +808,15 @@ export default function Home() {
           <button
             type="button"
             onClick={() => setSupportOpen(true)}
-            className="shrink-0 rounded-lg ring-1 ring-zinc-200/80 transition hover:opacity-95 hover:ring-brand/35 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:ring-zinc-700"
+            className="shrink-0 inline-flex p-0 leading-none ring-1 ring-zinc-200/80 transition hover:opacity-95 hover:ring-brand/35 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:ring-zinc-700"
             aria-label="Open support and donation details"
           >
-            <span className="relative inline-flex overflow-hidden rounded-md">
+            <span className="relative block overflow-hidden rounded-md">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/support_next.png"
                 alt="Support the next artwork"
-                className="h-8 w-auto brightness-[0.92] contrast-[1.03] sm:h-9"
+                className="block h-7 w-auto brightness-[0.92] contrast-[1.03] sm:h-8"
               />
               <span
                 className="pointer-events-none absolute inset-0 rounded-md bg-brand/38 mix-blend-color"

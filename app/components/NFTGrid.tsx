@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { NftAssetLightbox } from "@/app/components/NftAssetLightbox";
 import { detectPrimaryStorage, extractCidsFromNft, nftKey, previewUrlFromNft } from "@/lib/nft-cids";
 import type { ExtractedNftRow, NormalizedNft } from "@/types/nft";
 
@@ -22,6 +23,7 @@ function badgeClass(health: ExtractedNftRow["health"]) {
 export function NFTGrid({ nfts, rows, selectedKeys, onToggle, onToggleAll }: Props) {
   const [copiedValue, setCopiedValue] = useState<string | null>(null);
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => new Set());
+  const [lightboxKey, setLightboxKey] = useState<string | null>(null);
   const rowByKey = new Map<string, ExtractedNftRow>();
   if (rows) for (const r of rows) rowByKey.set(r.key, r);
 
@@ -49,6 +51,19 @@ export function NFTGrid({ nfts, rows, selectedKeys, onToggle, onToggleAll }: Pro
       return next;
     });
   }
+
+  const lightboxProps = useMemo(() => {
+    if (!lightboxKey) return null;
+    const nft = nfts.find((n) => nftKey(n) === lightboxKey);
+    if (!nft) return null;
+    const k = nftKey(nft);
+    const row = rowByKey.get(k);
+    const previewUrl = row?.previewUrl ?? previewUrlFromNft(nft, extractCidsFromNft(nft));
+    const title = row?.name ?? nft.name ?? `Token ${nft.tokenId}`;
+    const storage = detectPrimaryStorage(nft);
+    const health = row?.health ?? (storage === "arweave" ? "arweave" : "dead");
+    return { nft, row, previewUrl, displayTitle: title, health };
+  }, [lightboxKey, nfts, rows]);
 
   return (
     <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
@@ -79,7 +94,14 @@ export function NFTGrid({ nfts, rows, selectedKeys, onToggle, onToggleAll }: Pro
           return (
             <li key={key} className="p-4">
               <details open={expandedKeys.has(key)} onToggle={(e) => toggleExpanded(key, e.currentTarget.open)}>
-                <summary className="list-none cursor-pointer">
+                <summary
+                  className="list-none cursor-pointer"
+                  onClickCapture={(e) => {
+                    if ((e.target as HTMLElement).closest("[data-nft-thumb]")) {
+                      e.preventDefault();
+                    }
+                  }}
+                >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                     <div className="flex items-start gap-3 sm:w-72">
                       <input
@@ -89,10 +111,29 @@ export function NFTGrid({ nfts, rows, selectedKeys, onToggle, onToggleAll }: Pro
                         onClick={(e) => e.stopPropagation()}
                         className="mt-1 rounded border-zinc-300 text-brand focus:ring-brand dark:border-zinc-600"
                       />
-                      <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900">
+                      <div
+                        data-nft-thumb
+                        role="button"
+                        tabIndex={0}
+                        title="View larger"
+                        className="h-14 w-14 shrink-0 cursor-zoom-in overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 outline-none ring-brand/0 transition hover:ring-2 hover:ring-brand/40 focus-visible:ring-2 focus-visible:ring-brand dark:border-zinc-800 dark:bg-zinc-900"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setLightboxKey(key);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setLightboxKey(key);
+                          }
+                        }}
+                      >
                         {previewUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={previewUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+                          <img src={previewUrl} alt="" className="h-full w-full object-cover" loading="lazy" draggable={false} />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center text-[10px] text-zinc-400">No preview</div>
                         )}
@@ -179,6 +220,16 @@ export function NFTGrid({ nfts, rows, selectedKeys, onToggle, onToggleAll }: Pro
           );
         })}
       </ul>
+      {lightboxProps ? (
+        <NftAssetLightbox
+          nft={lightboxProps.nft}
+          row={lightboxProps.row}
+          previewUrl={lightboxProps.previewUrl}
+          displayTitle={lightboxProps.displayTitle}
+          health={lightboxProps.health}
+          onClose={() => setLightboxKey(null)}
+        />
+      ) : null}
     </div>
   );
 }
