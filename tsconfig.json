@@ -24,7 +24,6 @@
   },
   "include": [
     "next-env.d.ts",
-    "types/shims-web3-storage.d.ts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",

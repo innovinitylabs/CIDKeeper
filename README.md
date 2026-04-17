@@ -1,10 +1,10 @@
 # CIDKeeper
 
-Backup and preserve NFTs before they disappear. CIDKeeper scans an Ethereum wallet via Alchemy, checks IPFS gateway health for primary assets, supports ZIP export with a manifest, and optional re-pinning through web3.storage.
+Backup and preserve NFTs before they disappear. CIDKeeper scans an Ethereum wallet via Alchemy, checks IPFS gateway health for primary assets, supports ZIP export with a manifest, and optional **pinning of existing IPFS CIDs** through the [4EVERLAND](https://www.4everland.org/) IPFS [Pinning Service API](https://docs.4everland.org/storage/4ever-pin/pinning-services-api) at `https://api.4everland.dev/pins` (no re-upload; the same CID is submitted to their pin queue).
 
-**Note:** web3.storage pinning in the UI and API is still a work in progress; ZIP export and CID checks are the more stable workflows.
+**Note:** Pinning uses your **4EVERLAND pin access token** from [Pinning service](https://dashboard.4everland.org/bucket/pinning-service) (saved in the browser like Alchemy), or optionally `FOUR_EVERLAND_TOKEN` in `.env` on a server you control. ZIP export and CID checks work with Alchemy alone.
 
-**Live site:** deploy as you prefer; the UI can use **your own** Alchemy and web3.storage credentials (stored in the browser) so you are not limited by shared free-tier quotas.
+**Live site:** deploy as you prefer; the UI can save **your own** Alchemy API key (and 4EVERLAND token for pinning) in the browser so you are not limited by shared free-tier quotas.
 
 ## Open source
 
@@ -43,7 +43,7 @@ On a **fresh Windows PC**: install [Node.js](https://nodejs.org/) (LTS) and [Git
    Edit `.env` and set at least:
 
    - `ALCHEMY_API_KEY` — required for server routes to talk to Alchemy unless the client sends a key (see below).
-   - `WEB3STORAGE_TOKEN` — optional; only needed for the pin API route if you do not send a token from the browser.
+   - `FOUR_EVERLAND_TOKEN` — optional server default for pinning; users normally paste their token in the UI instead. Without any token (browser or env), the pin route returns HTTP 501.
 
    Optional variables are documented in `.env.example`.
 
@@ -55,9 +55,9 @@ On a **fresh Windows PC**: install [Node.js](https://nodejs.org/) (LTS) and [Git
 
 5. **Open the app** in a browser at [http://localhost:3000](http://localhost:3000).
 
-### Using only browser-stored keys (optional)
+### Using only browser-stored Alchemy key (optional)
 
-The web UI can save Alchemy and web3.storage keys in **localStorage** and send them to your local `/api/*` routes. You can leave `ALCHEMY_API_KEY` / `WEB3STORAGE_TOKEN` empty in `.env` for local experiments if you always use keys from the UI (not recommended for production servers you do not fully control).
+The web UI can save an Alchemy key and a 4EVERLAND pin access token in **localStorage** and send them to your local `/api/*` routes. You can leave `ALCHEMY_API_KEY` empty in `.env` if you always paste an Alchemy key in the UI (not recommended for production servers you do not fully control). For pinning, either paste your 4EVERLAND token in the UI or set `FOUR_EVERLAND_TOKEN` in `.env`.
 
 ### Production build (local)
 
@@ -82,7 +82,7 @@ Then open [http://localhost:3000](http://localhost:3000) (default port 3000 unle
 
 - [Next.js](https://nextjs.org/) (App Router)
 - TypeScript, Tailwind CSS v4
-- Alchemy (NFTs, transfers, RPC), web3.storage (optional pin flow)
+- Alchemy (NFTs, transfers, RPC), 4EVERLAND pin API (optional IPFS pinning by CID)
 
 ## Contributing
 

@@ -1,25 +1,88 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { downloadExactBytes, extensionFromContentType, limitConcurrency5 } from "@/lib/ipfs";
-import { web3StorageTokenFromRequest } from "@/lib/user-provider-keys";
-import { File, Web3Storage } from "web3.storage";
+import { limitConcurrency5 } from "@/lib/ipfs";
+import { fourEverlandTokenFromRequest } from "@/lib/user-provider-keys";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+/** IPFS Pinning Service API base (4EVERLAND). See https://docs.4everland.org/storage/4ever-pin/pinning-services-api */
+const FOUR_EVERLAND_PINS_URL = "https://api.4everland.dev/pins";
+const MAX_ERROR_SNIPPET = 4000;
 
 const BodySchema = z.object({
   cids: z.array(z.string().min(3)).max(50),
 });
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function pinCidOnce(cid: string, token: string): Promise<Response> {
+  return fetch(FOUR_EVERLAND_PINS_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ cid }),
+    cache: "no-store",
+  });
+}
+
+function interpretPinStatusBody(text: string): { ok: true } | { ok: false; error: string } {
+  const trimmed = text.trim();
+  if (!trimmed) return { ok: true };
+  try {
+    const j = JSON.parse(trimmed) as { status?: string; info?: Record<string, unknown> };
+    if (j.status === "failed") {
+      const details = j.info?.status_details;
+      const msg =
+        typeof details === "string" && details.trim()
+          ? details.trim()
+          : trimmed.length > MAX_ERROR_SNIPPET
+            ? `${trimmed.slice(0, MAX_ERROR_SNIPPET)}...`
+            : trimmed;
+      return { ok: false, error: msg };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: true };
+  }
+}
+
+async function pinCidWithRetry(cid: string, token: string): Promise<{ cid: string; success: boolean; error?: string }> {
+  try {
+    let res = await pinCidOnce(cid, token);
+    if (res.status === 429) {
+      await sleep(500);
+      res = await pinCidOnce(cid, token);
+    }
+    const text = await res.text();
+    if (!res.ok) {
+      const snippet = text.length > MAX_ERROR_SNIPPET ? `${text.slice(0, MAX_ERROR_SNIPPET)}...` : text;
+      return { cid, success: false, error: snippet || `HTTP_${res.status}` };
+    }
+    const interpreted = interpretPinStatusBody(text);
+    if (!interpreted.ok) {
+      return { cid, success: false, error: interpreted.error };
+    }
+    return { cid, success: true };
+  } catch (e) {
+    return { cid, success: false, error: e instanceof Error ? e.message : "network_error" };
+  }
+}
+
 export async function POST(req: Request) {
   try {
-    const token = web3StorageTokenFromRequest(req);
+    const token = fourEverlandTokenFromRequest(req);
     if (!token) {
       return NextResponse.json(
         {
           error: "pin_unavailable",
           message:
-            "No web3.storage token: add one under Your API keys in this app (stored in your browser) or set WEB3STORAGE_TOKEN on the server.",
+            "No 4EVERLAND pin access token: add yours under Your API keys (4EVERLAND Pinning service), or set FOUR_EVERLAND_TOKEN on the server.",
         },
         { status: 501 },
       );
@@ -31,33 +94,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "invalid_body", issues: parsed.error.flatten() }, { status: 400 });
     }
 
-    const client = new Web3Storage({ token });
     const cids = [...new Set(parsed.data.cids)];
 
     const results = await Promise.all(
-      cids.map((inputCid) =>
-        limitConcurrency5(async () => {
-          try {
-            const dl = await downloadExactBytes(inputCid);
-            if (!dl.ok) {
-              return { inputCid, outputCid: null as string | null, error: dl.error };
-            }
-            const ext = extensionFromContentType(dl.contentType);
-            const name = `${inputCid}${ext}`;
-            const file = new File([Buffer.from(dl.bytes)], name, {
-              type: dl.contentType ?? "application/octet-stream",
-            });
-            const outputCid = await client.put([file], { wrapWithDirectory: false });
-            return { inputCid, outputCid, error: null as string | null };
-          } catch (e) {
-            return {
-              inputCid,
-              outputCid: null as string | null,
-              error: e instanceof Error ? e.message : "pin_failed",
-            };
-          }
-        }),
-      ),
+      cids.map((cid) => limitConcurrency5(() => pinCidWithRetry(cid, token))),
     );
 
     return NextResponse.json({ results });

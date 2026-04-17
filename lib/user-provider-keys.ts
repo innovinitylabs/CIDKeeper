@@ -1,17 +1,19 @@
 export const LOCAL_STORAGE_ALCHEMY_KEY = "cidkeeper_local_alchemy_api_key";
-export const LOCAL_STORAGE_WEB3_TOKEN = "cidkeeper_local_web3storage_token";
+/** Legacy key from web3.storage era; cleared so old tokens are not left behind. */
+const LEGACY_LOCAL_STORAGE_WEB3_TOKEN = "cidkeeper_local_web3storage_token";
 
-/** Single JSON blob so Alchemy-only (or web3-only) saves do not depend on the other field. */
+/** Single JSON blob for Alchemy key in the browser. */
 const PROVIDER_KEYS_JSON_KEY = "cidkeeper_provider_keys_v1";
 
 export type LoadedProviderKeys = {
   alchemyApiKey: string;
-  web3StorageToken: string;
+  /** 4EVERLAND Pinning service access token (Bearer) from the user dashboard. */
+  fourEverlandToken: string;
 };
 
 export function loadProviderKeysFromBrowser(): LoadedProviderKeys {
   if (typeof window === "undefined") {
-    return { alchemyApiKey: "", web3StorageToken: "" };
+    return { alchemyApiKey: "", fourEverlandToken: "" };
   }
   try {
     const raw = window.localStorage.getItem(PROVIDER_KEYS_JSON_KEY);
@@ -19,7 +21,7 @@ export function loadProviderKeysFromBrowser(): LoadedProviderKeys {
       const j = JSON.parse(raw) as Record<string, unknown>;
       return {
         alchemyApiKey: typeof j.alchemyApiKey === "string" ? j.alchemyApiKey : "",
-        web3StorageToken: typeof j.web3StorageToken === "string" ? j.web3StorageToken : "",
+        fourEverlandToken: typeof j.fourEverlandToken === "string" ? j.fourEverlandToken : "",
       };
     }
   } catch {
@@ -28,20 +30,20 @@ export function loadProviderKeysFromBrowser(): LoadedProviderKeys {
   try {
     return {
       alchemyApiKey: window.localStorage.getItem(LOCAL_STORAGE_ALCHEMY_KEY) ?? "",
-      web3StorageToken: window.localStorage.getItem(LOCAL_STORAGE_WEB3_TOKEN) ?? "",
+      fourEverlandToken: "",
     };
   } catch {
-    return { alchemyApiKey: "", web3StorageToken: "" };
+    return { alchemyApiKey: "", fourEverlandToken: "" };
   }
 }
 
-export function saveProviderKeysToBrowser(alchemyApiKey: string, web3StorageToken: string): void {
+export function saveProviderKeysToBrowser(alchemyApiKey: string, fourEverlandToken: string): void {
   if (typeof window === "undefined") return;
   const a = alchemyApiKey.trim();
-  const w = web3StorageToken.trim();
+  const f = fourEverlandToken.trim();
   const payload: Record<string, string> = {};
   if (a) payload.alchemyApiKey = a;
-  if (w) payload.web3StorageToken = w;
+  if (f) payload.fourEverlandToken = f;
   try {
     if (Object.keys(payload).length === 0) {
       window.localStorage.removeItem(PROVIDER_KEYS_JSON_KEY);
@@ -49,7 +51,6 @@ export function saveProviderKeysToBrowser(alchemyApiKey: string, web3StorageToke
       window.localStorage.setItem(PROVIDER_KEYS_JSON_KEY, JSON.stringify(payload));
     }
     window.localStorage.removeItem(LOCAL_STORAGE_ALCHEMY_KEY);
-    window.localStorage.removeItem(LOCAL_STORAGE_WEB3_TOKEN);
   } catch (e) {
     throw e instanceof Error ? e : new Error("local_storage_write_failed");
   }
@@ -60,14 +61,14 @@ export function clearProviderKeysFromBrowser(): void {
   try {
     window.localStorage.removeItem(PROVIDER_KEYS_JSON_KEY);
     window.localStorage.removeItem(LOCAL_STORAGE_ALCHEMY_KEY);
-    window.localStorage.removeItem(LOCAL_STORAGE_WEB3_TOKEN);
+    window.localStorage.removeItem(LEGACY_LOCAL_STORAGE_WEB3_TOKEN);
   } catch {
     // ignore
   }
 }
 
 export const HEADER_ALCHEMY_API_KEY = "x-cidkeeper-alchemy-api-key";
-export const HEADER_WEB3_STORAGE_TOKEN = "x-cidkeeper-web3storage-token";
+export const HEADER_FOUR_EVERLAND_TOKEN = "x-cidkeeper-four-everland-token";
 
 export function alchemyApiKeyFromRequest(req: Request): string | null {
   const fromHeader = req.headers.get(HEADER_ALCHEMY_API_KEY)?.trim();
@@ -76,9 +77,9 @@ export function alchemyApiKeyFromRequest(req: Request): string | null {
   return env || null;
 }
 
-export function web3StorageTokenFromRequest(req: Request): string | null {
-  const fromHeader = req.headers.get(HEADER_WEB3_STORAGE_TOKEN)?.trim();
+export function fourEverlandTokenFromRequest(req: Request): string | null {
+  const fromHeader = req.headers.get(HEADER_FOUR_EVERLAND_TOKEN)?.trim();
   if (fromHeader) return fromHeader;
-  const env = process.env.WEB3STORAGE_TOKEN?.trim();
+  const env = process.env.FOUR_EVERLAND_TOKEN?.trim();
   return env || null;
 }

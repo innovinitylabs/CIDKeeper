@@ -12,7 +12,7 @@ import { isEthereumAddress } from "@/lib/address";
 import { isWalletOrEns } from "@/lib/resolve-owner";
 import {
   HEADER_ALCHEMY_API_KEY,
-  HEADER_WEB3_STORAGE_TOKEN,
+  HEADER_FOUR_EVERLAND_TOKEN,
   clearProviderKeysFromBrowser,
   loadProviderKeysFromBrowser,
   saveProviderKeysToBrowser,
@@ -59,6 +59,9 @@ export default function Home() {
   const [banner, setBanner] = useState<string | null>(null);
   const [ensNotice, setEnsNotice] = useState<string | null>(null);
   const [pinMessage, setPinMessage] = useState<string | null>(null);
+  /** Set together with pinMessage so the panel can use success (green), partial (amber), or failure (rose) styling. */
+  const [pinSummary, setPinSummary] = useState<{ ok: number; total: number } | null>(null);
+  const [lastPinFailedCids, setLastPinFailedCids] = useState<string[]>([]);
 
   const [phase, setPhase] = useState<"idle" | "nfts" | "extract" | "zip" | "pin">("idle");
   const [progress, setProgress] = useState<number | null>(null);
@@ -67,7 +70,7 @@ export default function Home() {
   const [supportOpen, setSupportOpen] = useState(false);
   const [supportCopied, setSupportCopied] = useState<string | null>(null);
   const [localAlchemyKey, setLocalAlchemyKey] = useState("");
-  const [localWeb3Token, setLocalWeb3Token] = useState("");
+  const [localFourEverlandToken, setLocalFourEverlandToken] = useState("");
   const [providerKeysNotice, setProviderKeysNotice] = useState<string | null>(null);
   const [extraFoundationFactories, setExtraFoundationFactories] = useState<string[]>([]);
   const [factoryAddressInput, setFactoryAddressInput] = useState("");
@@ -78,7 +81,7 @@ export default function Home() {
     try {
       const loaded = loadProviderKeysFromBrowser();
       setLocalAlchemyKey(loaded.alchemyApiKey);
-      setLocalWeb3Token(loaded.web3StorageToken);
+      setLocalFourEverlandToken(loaded.fourEverlandToken);
       const raw = window.localStorage.getItem(LOCAL_STORAGE_EXTRA_FOUNDATION_FACTORIES);
       if (raw) {
         const parsed = JSON.parse(raw) as unknown;
@@ -98,22 +101,24 @@ export default function Home() {
   const providerHeaders = useMemo(() => {
     const h: Record<string, string> = {};
     const ak = localAlchemyKey.trim();
-    const wt = localWeb3Token.trim();
+    const fe = localFourEverlandToken.trim();
     if (ak) h[HEADER_ALCHEMY_API_KEY] = ak;
-    if (wt) h[HEADER_WEB3_STORAGE_TOKEN] = wt;
+    if (fe) h[HEADER_FOUR_EVERLAND_TOKEN] = fe;
     return h;
-  }, [localAlchemyKey, localWeb3Token]);
+  }, [localAlchemyKey, localFourEverlandToken]);
 
   const persistProviderKeys = useCallback(() => {
     const ak = localAlchemyKey.trim();
-    const wt = localWeb3Token.trim();
-    if (!ak && !wt) {
-      setBanner("Enter at least one key to save, or use Clear stored keys to remove saved keys.");
+    const fe = localFourEverlandToken.trim();
+    if (!ak && !fe) {
+      setBanner(
+        "Enter an Alchemy API key and/or a 4EVERLAND pin access token to save, or use Clear stored keys to remove saved keys.",
+      );
       setProviderKeysNotice(null);
       return;
     }
     try {
-      saveProviderKeysToBrowser(localAlchemyKey, localWeb3Token);
+      saveProviderKeysToBrowser(localAlchemyKey, localFourEverlandToken);
       setBanner(null);
       setProviderKeysNotice("Saved keys in this browser.");
       window.setTimeout(() => {
@@ -123,11 +128,11 @@ export default function Home() {
       setBanner("Could not save keys in this browser (storage may be blocked).");
       setProviderKeysNotice(null);
     }
-  }, [localAlchemyKey, localWeb3Token]);
+  }, [localAlchemyKey, localFourEverlandToken]);
 
   const clearProviderKeys = useCallback(() => {
     setLocalAlchemyKey("");
-    setLocalWeb3Token("");
+    setLocalFourEverlandToken("");
     clearProviderKeysFromBrowser();
     setBanner(null);
     setProviderKeysNotice(null);
@@ -377,6 +382,62 @@ export default function Home() {
     [wallet, selectionPayload, nftScope, includeFactoryCollections, extraFoundationFactories, providerHeaders],
   );
 
+  const runPinRequest = useCallback(async (cids: string[]) => {
+    if (!cids.length) return;
+    setPinMessage(null);
+    setPinSummary(null);
+    setLastPinFailedCids([]);
+    setPhase("pin");
+    setProgress(null);
+    try {
+      const res = await fetch("/api/pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...providerHeaders },
+        body: JSON.stringify({ cids }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 501) {
+        setBanner(
+          data?.message ??
+            "No 4EVERLAND pin access token: add yours under Your API keys (4EVERLAND Pinning service), or set FOUR_EVERLAND_TOKEN on the server.",
+        );
+        return;
+      }
+      const results = Array.isArray(data.results)
+        ? (data.results as { cid: string; success?: boolean; error?: string }[])
+        : [];
+      const failed = results.filter((r) => !r.success).map((r) => r.cid);
+      setLastPinFailedCids(failed);
+      const ok = results.filter((r) => r.success).length;
+      const total = results.length;
+      setPinSummary(total ? { ok, total } : { ok: 0, total: 0 });
+      const headline =
+        total === 0
+          ? "No pin results returned from 4EVERLAND."
+          : ok === total
+            ? "Pinning complete via 4EVERLAND"
+            : ok === 0
+              ? "Pinning failed via 4EVERLAND"
+              : "Pinning finished via 4EVERLAND (partial success)";
+      const lines: string[] = [headline];
+      if (total > 0) lines.push(`${ok}/${total} succeeded.`);
+      else lines.push("No CIDs were processed.");
+      const failures = results.filter((x) => !x.success);
+      const maxFailLines = 20;
+      for (const r of failures.slice(0, maxFailLines)) {
+        lines.push(`${r.cid}: ${r.error ?? "failed"}`);
+      }
+      if (failures.length > maxFailLines) {
+        lines.push(`...and ${failures.length - maxFailLines} more failures`);
+      }
+      setPinMessage(lines.join("\n"));
+    } catch {
+      setBanner("Network error while pinning.");
+    } finally {
+      setPhase("idle");
+    }
+  }, [providerHeaders]);
+
   const pinSelected = useCallback(async () => {
     if (!rows?.length) {
       setBanner("Run CID analysis before pinning.");
@@ -391,36 +452,13 @@ export default function Home() {
       setBanner("No IPFS CIDs available for the current selection.");
       return;
     }
-    setPinMessage(null);
-    setPhase("pin");
-    setProgress(null);
-    try {
-      const res = await fetch("/api/pin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...providerHeaders },
-        body: JSON.stringify({ cids: unique }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.status === 501) {
-        setBanner(data?.message ?? "Pinning needs a web3.storage token (your key or server WEB3STORAGE_TOKEN).");
-        return;
-      }
-      const results = Array.isArray(data.results) ? data.results : [];
-      const ok = results.filter((x: { outputCid?: string | null }) => x.outputCid).length;
-      const lines: string[] = [
-        `web3.storage upload finished: ${ok}/${results.length} succeeded (re-uploaded bytes; new root CIDs).`,
-      ];
-      for (const r of results.slice(0, 12) as { inputCid: string; outputCid?: string | null; error?: string | null }[]) {
-        lines.push(r.outputCid ? `${r.inputCid} -> ${r.outputCid}` : `${r.inputCid}: ${r.error ?? "failed"}`);
-      }
-      if (results.length > 12) lines.push(`…and ${results.length - 12} more`);
-      setPinMessage(lines.join("\n"));
-    } catch {
-      setBanner("Network error while pinning.");
-    } finally {
-      setPhase("idle");
-    }
-  }, [rows, selectionPayload, providerHeaders]);
+    await runPinRequest(unique);
+  }, [rows, selectionPayload, runPinRequest]);
+
+  const retryFailedPins = useCallback(() => {
+    if (!lastPinFailedCids.length) return;
+    void runPinRequest([...new Set(lastPinFailedCids)]);
+  }, [lastPinFailedCids, runPinRequest]);
 
   return (
     <div className="flex min-h-full flex-1 flex-col bg-zinc-50 dark:bg-zinc-950">
@@ -431,7 +469,7 @@ export default function Home() {
             Backup and preserve your NFTs before they disappear
           </h1>
           <p className="max-w-2xl text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
-            NFTs aren't permanent unless someone keeps the data alive. CIDKeeper scans your wallet, checks which assets are
+            NFTs aren&apos;t permanent unless someone keeps the data alive. CIDKeeper scans your wallet, checks which assets are
             still accessible, and lets you download the original files exactly as stored on IPFS. Keep a local backup or re-pin
             them on your own terms.
           </p>
@@ -439,8 +477,8 @@ export default function Home() {
             <p className="font-medium text-zinc-900 dark:text-zinc-100">Open source on GitHub</p>
             <p className="mt-2">
               The public deployment uses shared provider quotas on free tiers. Please add{" "}
-              <span className="font-medium text-zinc-800 dark:text-zinc-200">your own Alchemy and web3.storage keys</span> under
-              Your API keys so everyone gets a reliable experience. Prefer even more control?{" "}
+              <span className="font-medium text-zinc-800 dark:text-zinc-200">your own Alchemy API key</span> (and a 4EVERLAND pin
+              token if you use pinning) under Your API keys so everyone gets a reliable experience. Prefer even more control?{" "}
               <span className="font-medium text-zinc-800 dark:text-zinc-200">Clone the repo and run it locally</span> with your
               keys in <span className="font-mono text-[11px]">.env</span>, or open issues and pull requests to improve CIDKeeper.
             </p>
@@ -468,12 +506,13 @@ export default function Home() {
               Your API keys (optional)
             </summary>
             <p className="mt-3 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
-              Keys are kept only in this browser (localStorage on your device). When you load NFTs, export a ZIP, or pin, they
-              are sent over HTTPS to this site&apos;s API routes so the server can call Alchemy and web3.storage on your behalf.
-              They are not stored in a CIDKeeper database. The hosted app relies on small free-tier quotas when you do not add
-              keys, so using your own keys keeps the tool fast for you and fair for everyone. Anyone who can modify or observe
-              this deployment could in theory intercept them, so use provider keys you can rotate and restrict (IP allowlists,
-              usage caps) in the Alchemy and web3.storage dashboards.
+              Keys you save here stay in this browser (localStorage). They are sent over HTTPS to this site&apos;s API routes
+              when you load NFTs, export a ZIP, or pin CIDs. They are not stored in a CIDKeeper database. The hosted app relies
+              on small free-tier quotas when you skip your own Alchemy key. Anyone who can observe or modify this deployment
+              could intercept keys, so use credentials you can rotate. Your 4EVERLAND pin access token is sent only for pin
+              requests so the server can call 4EVERLAND on your behalf (same CID; no re-upload). Self-hosted deployments may
+              optionally set <span className="font-mono text-[11px]">FOUR_EVERLAND_TOKEN</span> in the server environment instead
+              of using the field below.
             </p>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <label className="flex flex-col gap-1 text-xs text-zinc-600 dark:text-zinc-400">
@@ -489,28 +528,35 @@ export default function Home() {
                 />
               </label>
               <label className="flex flex-col gap-1 text-xs text-zinc-600 dark:text-zinc-400">
-                <span className="font-medium text-zinc-700 dark:text-zinc-300">web3.storage API token</span>
+                <span className="font-medium text-zinc-700 dark:text-zinc-300">4EVERLAND pin access token</span>
+                <span className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-500">
+                  Create or open a bucket, verify your account, then copy the pin access token from the{" "}
+                  <a
+                    href="https://dashboard.4everland.org/bucket/pinning-service"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-brand underline decoration-brand/30 underline-offset-2 hover:text-brand-hover dark:text-brand-light dark:hover:text-white"
+                  >
+                    4EVERLAND Pinning service
+                  </a>{" "}
+                  page. Paste it here for Pin selected (4EVERLAND).
+                </span>
                 <input
                   type="password"
                   autoComplete="off"
-                  value={localWeb3Token}
-                  onChange={(e) => setLocalWeb3Token(e.target.value)}
+                  value={localFourEverlandToken}
+                  onChange={(e) => setLocalFourEverlandToken(e.target.value)}
                   disabled={busy}
-                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2 font-mono text-xs text-zinc-900 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
-                  placeholder="Needed for Pin selected (experimental)"
+                  className="mt-1 rounded-lg border border-zinc-300 bg-white px-3 py-2 font-mono text-xs text-zinc-900 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
+                  placeholder="Needed for Pin selected (4EVERLAND)"
                 />
               </label>
             </div>
-            <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2 text-xs leading-relaxed text-amber-950 dark:border-amber-900/45 dark:bg-amber-950/35 dark:text-amber-100">
-              <span className="font-semibold">Work in progress:</span> Pinning via web3.storage is still being built and tested.
-              Prefer <span className="font-medium">ZIP export</span> and <span className="font-medium">CID analysis</span> for
-              production-style backups until pinning is stable.
-            </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={persistProviderKeys}
-                disabled={busy || (!localAlchemyKey.trim() && !localWeb3Token.trim())}
+                disabled={busy || (!localAlchemyKey.trim() && !localFourEverlandToken.trim())}
                 className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
               >
                 Save to this browser
@@ -696,8 +742,16 @@ export default function Home() {
               {ensNotice}
             </p>
           ) : null}
-          {pinMessage ? (
-            <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap rounded-lg border border-brand/25 bg-brand-soft px-3 py-2 font-mono text-xs text-brand-ink dark:border-brand/35 dark:bg-brand/10 dark:text-brand-light">
+          {pinMessage && pinSummary ? (
+            <pre
+              className={
+                pinSummary.total === 0 || pinSummary.ok === 0
+                  ? "mt-3 max-h-48 overflow-auto whitespace-pre-wrap rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 font-mono text-xs text-rose-950 dark:border-rose-900/55 dark:bg-rose-950/45 dark:text-rose-100"
+                  : pinSummary.ok === pinSummary.total
+                    ? "mt-3 max-h-48 overflow-auto whitespace-pre-wrap rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 font-mono text-xs text-emerald-950 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-100"
+                    : "mt-3 max-h-48 overflow-auto whitespace-pre-wrap rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 font-mono text-xs text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100"
+              }
+            >
               {pinMessage}
             </pre>
           ) : null}
@@ -713,7 +767,7 @@ export default function Home() {
                       ? "Checking IPFS gateway health…"
                       : phase === "zip"
                         ? "Building ZIP (exact bytes + manifest)…"
-                        : "Pinning via web3.storage…"
+                        : "Pinning via 4EVERLAND…"
                 }
                 value={progress}
               />
@@ -759,7 +813,15 @@ export default function Home() {
                 disabled={busy}
                 className="rounded-lg border border-brand/35 bg-brand-soft px-4 py-2 text-sm font-semibold text-brand-ink hover:bg-brand/15 disabled:opacity-50 dark:border-brand/40 dark:bg-brand/10 dark:text-brand-light dark:hover:bg-brand/20"
               >
-                Pin selected (web3.storage)
+                Pin selected (4EVERLAND)
+              </button>
+              <button
+                type="button"
+                onClick={retryFailedPins}
+                disabled={busy || lastPinFailedCids.length === 0}
+                className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-800 shadow-sm hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+              >
+                Retry failed pins
               </button>
             </div>
             <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
@@ -767,7 +829,8 @@ export default function Home() {
               <span className="font-semibold text-zinc-700 dark:text-zinc-200">Download selected</span> and tune{" "}
               <span className="font-mono">MAX_NFTS_FOR_ZIP</span> only if your deployment can handle heavier workloads.{" "}
               <span className="font-medium text-zinc-600 dark:text-zinc-300">
-                Pin selected (web3.storage) is still a work in progress; expect rough edges.
+                Pin selected (4EVERLAND) pins existing CIDs only (no re-upload). Save your pin access token under Your API keys,
+                or set <span className="font-mono">FOUR_EVERLAND_TOKEN</span> on the server if you self-host.
               </span>
             </p>
             <NFTGrid
