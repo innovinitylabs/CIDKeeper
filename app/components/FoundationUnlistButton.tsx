@@ -27,10 +27,12 @@ type Props = {
 export function FoundationUnlistButton({ contractAddress, tokenId, compact, className }: Props) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [submittedTxHash, setSubmittedTxHash] = useState<string | null>(null);
   const { address, switchToEthereumMainnet } = useBrowserWallet();
 
   const onUnlist = useCallback(async () => {
     setMsg(null);
+    setSubmittedTxHash(null);
     const addr = contractAddress.trim();
     if (!isEthereumAddress(addr)) {
       setMsg("Invalid NFT contract address.");
@@ -148,9 +150,7 @@ export function FoundationUnlistButton({ contractAddress, tokenId, compact, clas
       });
 
       if (typeof txHash === "string" && txHash.startsWith("0x")) {
-        setMsg(
-          `Submitted ${txHash.slice(0, 10)}... View on Etherscan: https://etherscan.io/tx/${txHash}`,
-        );
+        setSubmittedTxHash(txHash);
       } else {
         setMsg("Transaction submitted.");
       }
@@ -177,7 +177,22 @@ export function FoundationUnlistButton({ contractAddress, tokenId, compact, clas
       >
         {busy ? "Wallet…" : compact ? "Unlist (Foundation)" : "Unlist on Foundation"}
       </button>
-      {msg ? (
+      {submittedTxHash ? (
+        <p className="mt-1 max-w-[280px] text-[10px] leading-snug text-zinc-600 dark:text-zinc-400">
+          Submitted{" "}
+          <span className="font-mono text-zinc-800 dark:text-zinc-200">{`${submittedTxHash.slice(0, 10)}...`}</span>
+          .{" "}
+          <a
+            href={`https://etherscan.io/tx/${submittedTxHash}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-brand underline decoration-brand/30 underline-offset-2 hover:text-brand-hover dark:text-brand-light"
+            onClick={(e) => e.stopPropagation()}
+          >
+            View on Etherscan
+          </a>
+        </p>
+      ) : msg ? (
         <p className="mt-1 max-w-[280px] text-[10px] leading-snug text-zinc-600 dark:text-zinc-400">{msg}</p>
       ) : null}
     </div>

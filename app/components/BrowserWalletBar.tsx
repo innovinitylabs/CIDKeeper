@@ -29,8 +29,8 @@ export function BrowserWalletBar() {
             Browser wallet
           </p>
           <p className="mt-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
-            The site does not auto-connect your wallet. Click Connect when you are ready to sign (for example
-            Foundation unlist).
+            The site does not auto-connect your wallet. Loading NFTs and analyzing CIDs work without a wallet; connect
+            only when you want to send a transaction, such as unlisting on Foundation.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
