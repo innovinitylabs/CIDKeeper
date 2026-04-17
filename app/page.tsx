@@ -26,6 +26,7 @@ const LOCAL_STORAGE_EXTRA_FOUNDATION_FACTORIES = "cidkeeper_extra_foundation_fac
 const SUPPORT_BTC = "bc1qu46qju99mnamq2lw5zqdchddnuulnsq2wegzj0";
 const SUPPORT_ETH = "valipokkann.eth";
 const SUPPORT_TEZOS = "tz2VSTT36yEWHVBSLLk6dtvaUZax5qsMBg4M";
+const SUPPORT_EVM = "0x5e051c9106071baF1e4c087e3e06Fdd17396A433";
 
 const GITHUB_REPO_URL = "https://github.com/innovinitylabs/CIDKeeper";
 
@@ -998,6 +999,21 @@ export default function Home() {
                     className="shrink-0 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
                   >
                     {supportCopied === SUPPORT_TEZOS ? "Copied" : "Copy"}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">EVM</div>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <code className="min-w-0 flex-1 break-all rounded-md bg-zinc-100 px-2 py-1.5 font-mono text-[11px] text-zinc-800 dark:bg-zinc-950 dark:text-zinc-200">
+                    {SUPPORT_EVM}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => copySupportAddress(SUPPORT_EVM)}
+                    className="shrink-0 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
+                  >
+                    {supportCopied === SUPPORT_EVM ? "Copied" : "Copy"}
                   </button>
                 </div>
               </div>
