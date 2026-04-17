@@ -44,6 +44,7 @@ On a **fresh Windows PC**: install [Node.js](https://nodejs.org/) (LTS) and [Git
 
    - `ALCHEMY_API_KEY` — required for server routes to talk to Alchemy unless the client sends a key (see below).
    - `FOUR_EVERLAND_TOKEN` — optional server default for pinning; users normally paste their token in the UI instead. Without any token (browser or env), the pin route returns HTTP 501.
+   - `NEXT_PUBLIC_SITE_URL` — recommended for production SEO metadata (canonical URL, Open Graph, sitemap, robots), for example `https://your-domain.tld`.
 
    Optional variables are documented in `.env.example`.
 

@@ -30,6 +30,25 @@ const SUPPORT_EVM = "0x5e051c9106071baF1e4c087e3e06Fdd17396A433";
 
 const GITHUB_REPO_URL = "https://github.com/innovinitylabs/CIDKeeper";
 
+const SEO_FAQ: ReadonlyArray<{ q: string; a: string }> = [
+  {
+    q: "How does CIDKeeper back up NFTs from IPFS?",
+    a: "CIDKeeper loads wallet NFTs, extracts metadata and asset CIDs, checks gateway health, then exports exact bytes into a ZIP manifest so you keep an offline backup.",
+  },
+  {
+    q: "Can I pin NFT CIDs without re-uploading files?",
+    a: "Yes. Pin selected submits existing IPFS CIDs to 4EVERLAND pinning service. CIDKeeper checks current pin status first and skips CIDs already queued, pinning, or pinned.",
+  },
+  {
+    q: "Can I check Foundation marketplace listing status?",
+    a: "Yes. CIDKeeper can resolve whether NFTs are currently listed on Foundation and lets you filter listed or unlisted items in larger collections.",
+  },
+  {
+    q: "Does CIDKeeper work for Arweave NFTs too?",
+    a: "CIDKeeper detects Arweave primaries and labels them clearly. IPFS gateway health and pinning apply to IPFS CIDs, while Arweave items can still be inspected in the same collection view.",
+  },
+];
+
 const ALCHEMY_API_KEY_GUIDE_STEPS: { caption: string; file: string }[] = [
   {
     caption: "Open Alchemy, go to My Apps, and click Create new app.",
@@ -852,6 +871,28 @@ export default function Home() {
             />
           </section>
         ) : null}
+
+        <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">IPFS and NFT backup FAQ</h2>
+          <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+            This page is focused on NFT backup, IPFS pinning, Foundation listing checks, and long-term marketplace asset
+            recovery. If you are indexing large collections, start with wallet scan, then filter by storage, health, listing,
+            and pin status.
+          </p>
+          <div className="mt-4 space-y-3">
+            {SEO_FAQ.map((item) => (
+              <details
+                key={item.q}
+                className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900/50"
+              >
+                <summary className="cursor-pointer text-sm font-semibold text-zinc-800 select-none dark:text-zinc-200">
+                  {item.q}
+                </summary>
+                <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">{item.a}</p>
+              </details>
+            ))}
+          </div>
+        </section>
       </main>
 
       <footer className="mt-auto border-t border-zinc-200 bg-white/90 px-6 py-6 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/90">
