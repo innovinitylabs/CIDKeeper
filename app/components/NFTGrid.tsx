@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { FoundationUnlistButton } from "@/app/components/FoundationUnlistButton";
+import { FoundationUnlistIfListed } from "@/app/components/FoundationUnlistIfListed";
 import { NftAssetLightbox } from "@/app/components/NftAssetLightbox";
 import { detectPrimaryStorage, extractCidsFromNft, nftKey, previewUrlFromNft } from "@/lib/nft-cids";
 import type { ExtractedNftRow, NormalizedNft } from "@/types/nft";
@@ -12,6 +12,7 @@ type Props = {
   selectedKeys: Set<string>;
   onToggle: (key: string) => void;
   onToggleAll: (keys: string[], next: boolean) => void;
+  providerHeaders: Record<string, string>;
 };
 
 function badgeClass(health: ExtractedNftRow["health"]) {
@@ -21,7 +22,7 @@ function badgeClass(health: ExtractedNftRow["health"]) {
   return "bg-rose-500/15 text-rose-900 ring-rose-500/30 dark:text-rose-100";
 }
 
-export function NFTGrid({ nfts, rows, selectedKeys, onToggle, onToggleAll }: Props) {
+export function NFTGrid({ nfts, rows, selectedKeys, onToggle, onToggleAll, providerHeaders }: Props) {
   const [copiedValue, setCopiedValue] = useState<string | null>(null);
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => new Set());
   const [lightboxKey, setLightboxKey] = useState<string | null>(null);
@@ -197,16 +198,13 @@ export function NFTGrid({ nfts, rows, selectedKeys, onToggle, onToggleAll }: Pro
                           {expandedKeys.has(key) ? "Hide raw" : "Show raw"}
                         </span>
                       </div>
-                      <FoundationUnlistButton
+                      <FoundationUnlistIfListed
                         contractAddress={nft.contractAddress}
                         tokenId={nft.tokenId}
                         compact
                         className="flex flex-col items-end"
+                        providerHeaders={providerHeaders}
                       />
-                      <p className="max-w-[13rem] text-right text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
-                        Uses this row&apos;s NFT collection contract on Foundation.market, not a factory address from the
-                        options below.
-                      </p>
                     </div>
                   </div>
                 </summary>
@@ -240,6 +238,7 @@ export function NFTGrid({ nfts, rows, selectedKeys, onToggle, onToggleAll }: Pro
           previewUrl={lightboxProps.previewUrl}
           displayTitle={lightboxProps.displayTitle}
           health={lightboxProps.health}
+          providerHeaders={providerHeaders}
           onClose={() => setLightboxKey(null)}
         />
       ) : null}

@@ -770,7 +770,14 @@ export default function Home() {
                 Pin selected (web3.storage) is still a work in progress; expect rough edges.
               </span>
             </p>
-            <NFTGrid nfts={nfts} rows={rows} selectedKeys={selectedKeys} onToggle={toggle} onToggleAll={toggleAll} />
+            <NFTGrid
+              nfts={nfts}
+              rows={rows}
+              selectedKeys={selectedKeys}
+              onToggle={toggle}
+              onToggleAll={toggleAll}
+              providerHeaders={providerHeaders}
+            />
           </section>
         ) : null}
       </main>

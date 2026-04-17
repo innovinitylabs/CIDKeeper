@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { FoundationUnlistButton } from "@/app/components/FoundationUnlistButton";
+import { FoundationMarketListingSection } from "@/app/components/FoundationUnlistIfListed";
 import type { ExtractedNftRow, NormalizedNft } from "@/types/nft";
 
 type TraitRow = { trait: string; value: string };
@@ -61,10 +61,11 @@ type Props = {
   previewUrl: string | null;
   displayTitle: string;
   health: ExtractedNftRow["health"];
+  providerHeaders: Record<string, string>;
   onClose: () => void;
 };
 
-export function NftAssetLightbox({ nft, row, previewUrl, displayTitle, health, onClose }: Props) {
+export function NftAssetLightbox({ nft, row, previewUrl, displayTitle, health, providerHeaders, onClose }: Props) {
   const titleId = useId();
   const closeRef = useRef<HTMLButtonElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -249,19 +250,11 @@ export function NftAssetLightbox({ nft, row, previewUrl, displayTitle, health, o
                 <p className="mt-1 break-all font-mono text-xs text-zinc-900 dark:text-zinc-100">{nft.contractAddress}</p>
               </div>
 
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                  Foundation listing
-                </div>
-                <p className="mt-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
-                  On Ethereum mainnet, CIDKeeper checks whether this token is still held by the Foundation market contract
-                  before opening your wallet. If you already unlisted, the NFT is usually back in your wallet and the
-                  shortcut will explain that instead of sending a reverting transaction.
-                </p>
-                <div className="mt-2">
-                  <FoundationUnlistButton contractAddress={nft.contractAddress} tokenId={nft.tokenId} />
-                </div>
-              </div>
+              <FoundationMarketListingSection
+                contractAddress={nft.contractAddress}
+                tokenId={nft.tokenId}
+                providerHeaders={providerHeaders}
+              />
 
               {nft.tokenURI ? (
                 <div>

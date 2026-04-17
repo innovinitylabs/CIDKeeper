@@ -11,21 +11,10 @@ import {
   FOUNDATION_ETH_MAINNET_NFT_MARKET,
   foundationMarketEscrowAddressesForHelpText,
   isLikelyFoundationMarketEscrow,
+  parseNftTokenIdToBigInt,
 } from "@/lib/foundation-unlist";
 
 const MAINNET_CHAIN_ID_HEX = "0x1";
-
-export function parseNftTokenIdToBigInt(tokenId: string): bigint | null {
-  const t = tokenId.trim();
-  if (!t) return null;
-  try {
-    if (/^0x[0-9a-fA-F]+$/.test(t)) return BigInt(t);
-    if (/^\d+$/.test(t)) return BigInt(t);
-    return null;
-  } catch {
-    return null;
-  }
-}
 
 type Props = {
   contractAddress: string;
