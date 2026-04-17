@@ -6,7 +6,7 @@ import {
   mergeFoundationFactorySet,
 } from "@/lib/foundation-factory";
 import type { ReceiptLog } from "@/lib/evm-mint-receipt";
-import { nftKey } from "@/lib/nft-cids";
+import { nftKey, pickUriString } from "@/lib/nft-cids";
 import type { NormalizedNft } from "@/types/nft";
 
 type RpcJson<T> = { result?: T; error?: { message?: string } };
@@ -66,7 +66,7 @@ function normalizeOne(nft: AlchemyContractNft): NormalizedNft | null {
   const contractAddress = nft.contract?.address?.toLowerCase();
   const tokenId = nft.tokenId;
   if (!contractAddress || !tokenId) return null;
-  const tokenURI = nft.tokenUri ?? nft.tokenURI ?? nft.raw?.tokenUri ?? null;
+  const tokenURI = pickUriString(nft.tokenUri ?? nft.tokenURI ?? nft.raw?.tokenUri ?? null);
   const metadataBase =
     nft.metadata && typeof nft.metadata === "object"
       ? (nft.metadata as Record<string, unknown>)

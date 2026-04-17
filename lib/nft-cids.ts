@@ -1,7 +1,8 @@
 import { extractCID, gatewayUrlsForCid, ipfsResourceToHttpPreviewUrl } from "@/lib/cid";
 import type { ExportSource, NormalizedNft } from "@/types/nft";
 
-function pickUriString(v: unknown): string | null {
+/** Coerce Alchemy-style string or `{ gateway, uri, ... }` payloads into a single URL string. */
+export function pickUriString(v: unknown): string | null {
   if (typeof v === "string" && v.trim()) return v.trim();
   if (v && typeof v === "object") {
     const o = v as Record<string, unknown>;
@@ -11,8 +12,8 @@ function pickUriString(v: unknown): string | null {
   return null;
 }
 
-function isArweaveUrl(value: string | null): boolean {
-  if (!value) return false;
+function isArweaveUrl(value: string | null | unknown): boolean {
+  if (value == null || typeof value !== "string") return false;
   const v = value.trim().toLowerCase();
   return v.startsWith("ar://") || v.includes("arweave.net/");
 }
@@ -24,7 +25,8 @@ export type ExtractedCids = {
 };
 
 export function extractCidsFromNft(nft: NormalizedNft): ExtractedCids {
-  const metadataCID = nft.tokenURI ? extractCID(nft.tokenURI) : null;
+  const tokenUriStr = pickUriString(nft.tokenURI);
+  const metadataCID = tokenUriStr ? extractCID(tokenUriStr) : null;
 
   const meta = nft.metadata;
   const imageRaw = meta ? pickUriString(meta.image) : null;

@@ -6,7 +6,7 @@ import {
 } from "@/lib/created-by-wallet";
 import { collectCreatorMintKeys, hydrateNftsFromKeys } from "@/lib/minted-by-wallet";
 import { isEthereumAddress } from "@/lib/address";
-import { nftKey } from "@/lib/nft-cids";
+import { nftKey, pickUriString } from "@/lib/nft-cids";
 import type { NormalizedNft, NftListScope } from "@/types/nft";
 
 export type { NftListScope } from "@/types/nft";
@@ -38,7 +38,7 @@ function normalizeOne(nft: AlchemyOwnedNft): NormalizedNft | null {
   const contractAddress = nft.contract?.address?.toLowerCase();
   const tokenId = nft.id?.tokenId;
   if (!contractAddress || !tokenId) return null;
-  const tokenURI = nft.tokenUri ?? nft.tokenURI ?? null;
+  const tokenURI = pickUriString(nft.tokenUri ?? nft.tokenURI ?? null);
   const metadata =
     nft.metadata && typeof nft.metadata === "object" ? (nft.metadata as Record<string, unknown>) : null;
   return {

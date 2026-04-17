@@ -22,7 +22,8 @@ function firstPathSegmentAfterIpfsPath(path: string): string | null {
   return isLikelyCid(candidate) ? candidate : null;
 }
 
-export function extractCID(url: string): string | null {
+export function extractCID(url: string | null | undefined): string | null {
+  if (url == null || typeof url !== "string") return null;
   const raw = url.trim();
   if (!raw) return null;
 
