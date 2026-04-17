@@ -26,6 +26,8 @@ export type ExtractedNftRow = {
   primaryLabel: ExportSource | null;
   health: HealthStatus;
   healthMs: number | null;
+  /** True if primary CID has an active 4EVERLAND pin; false if checked and not pinned; null if skipped (no token, Arweave primary, or no primary CID). */
+  everlandPinned: boolean | null;
   errors: string[];
 };
 

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { FoundationMarketListingSection } from "@/app/components/FoundationUnlistIfListed";
+import { detectPrimaryStorage } from "@/lib/nft-cids";
 import type { ExtractedNftRow, NormalizedNft } from "@/types/nft";
 
 type TraitRow = { trait: string; value: string };
@@ -11,6 +12,13 @@ function lightboxBadgeClass(health: ExtractedNftRow["health"]) {
   if (health === "slow") return "bg-amber-500/15 text-amber-900 ring-amber-500/30 dark:text-amber-100";
   if (health === "arweave") return "bg-sky-500/15 text-sky-900 ring-sky-500/30 dark:text-sky-100";
   return "bg-rose-500/15 text-rose-900 ring-rose-500/30 dark:text-rose-100";
+}
+
+function everlandPinBadgeClass(pinned: boolean) {
+  if (pinned) {
+    return "bg-violet-500/15 text-violet-900 ring-violet-500/30 dark:text-violet-100 dark:ring-violet-500/35";
+  }
+  return "bg-zinc-200/90 text-zinc-700 ring-zinc-400/40 dark:bg-zinc-800/80 dark:text-zinc-200 dark:ring-zinc-600/50";
 }
 
 function pickMetadataDescription(metadata: Record<string, unknown> | null): string | null {
@@ -73,6 +81,7 @@ export function NftAssetLightbox({ nft, row, previewUrl, displayTitle, health, p
 
   const description = pickMetadataDescription(nft.metadata);
   const traits = pickMetadataAttributes(nft.metadata);
+  const primaryStorage = detectPrimaryStorage(nft);
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -213,6 +222,14 @@ export function NftAssetLightbox({ nft, row, previewUrl, displayTitle, health, p
                 >
                   {health}
                 </span>
+                {row && primaryStorage !== "arweave" && row.everlandPinned !== null ? (
+                  <span
+                    title="4EVERLAND Pinning service"
+                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${everlandPinBadgeClass(row.everlandPinned)}`}
+                  >
+                    {row.everlandPinned ? "Pinned (4EVER)" : "Unpinned (4EVER)"}
+                  </span>
+                ) : null}
                 <span className="text-xs text-zinc-500 dark:text-zinc-400">Token #{nft.tokenId}</span>
               </div>
 
@@ -296,6 +313,14 @@ export function NftAssetLightbox({ nft, row, previewUrl, displayTitle, health, p
                       <>
                         <dt className="text-zinc-500 dark:text-zinc-400">Latency</dt>
                         <dd className="text-zinc-900 dark:text-zinc-100">{row.healthMs} ms</dd>
+                      </>
+                    ) : null}
+                    {row.everlandPinned !== null ? (
+                      <>
+                        <dt className="text-zinc-500 dark:text-zinc-400">4EVERLAND pin</dt>
+                        <dd className="text-zinc-900 dark:text-zinc-100">
+                          {row.everlandPinned ? "Active pin for primary CID" : "No active pin for primary CID"}
+                        </dd>
                       </>
                     ) : null}
                   </dl>

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { hasActivePinAtFourEverland } from "@/lib/four-everland-pins";
 import { checkCIDHealth, limitConcurrency5 } from "@/lib/ipfs";
 import {
   detectPrimaryStorage,
@@ -9,6 +10,7 @@ import {
   previewUrlFromNft,
 } from "@/lib/nft-cids";
 import type { ExtractedNftRow, NormalizedNft } from "@/types/nft";
+import { fourEverlandTokenFromRequest } from "@/lib/user-provider-keys";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -58,6 +60,26 @@ export async function POST(req: Request) {
       ),
     );
 
+    const fourToken = fourEverlandTokenFromRequest(req);
+    const pinnedByCid = new Map<string, boolean>();
+    if (fourToken) {
+      const cidsToProbe = new Set<string>();
+      for (const nft of nfts) {
+        if (detectPrimaryStorage(nft) === "arweave") continue;
+        const cids = extractCidsFromNft(nft);
+        const primary = pickPrimaryExport(cids);
+        if (primary.cid) cidsToProbe.add(primary.cid);
+      }
+      await Promise.all(
+        [...cidsToProbe].map((cid) =>
+          limitConcurrency5(async () => {
+            const pinned = await hasActivePinAtFourEverland(cid, fourToken);
+            pinnedByCid.set(cid, pinned);
+          }),
+        ),
+      );
+    }
+
     const rows: ExtractedNftRow[] = nfts.map((nft) => {
       const cids = extractCidsFromNft(nft);
       const storage = detectPrimaryStorage(nft);
@@ -72,6 +94,9 @@ export async function POST(req: Request) {
         errors.push(storage === "arweave" ? "primary_asset_uses_arweave_not_ipfs" : "no_ipfs_cid_found_for_primary_asset");
       }
 
+      const everlandPinned =
+        fourToken && primaryCID && storage !== "arweave" ? Boolean(pinnedByCid.get(primaryCID)) : null;
+
       return {
         key: nftKey(nft),
         contractAddress: nft.contractAddress,
@@ -85,6 +110,7 @@ export async function POST(req: Request) {
         primaryLabel: primary.source,
         health,
         healthMs,
+        everlandPinned,
         errors,
       };
     });

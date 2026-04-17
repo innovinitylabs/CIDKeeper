@@ -22,6 +22,13 @@ function badgeClass(health: ExtractedNftRow["health"]) {
   return "bg-rose-500/15 text-rose-900 ring-rose-500/30 dark:text-rose-100";
 }
 
+function everlandPinBadgeClass(pinned: boolean) {
+  if (pinned) {
+    return "bg-violet-500/15 text-violet-900 ring-violet-500/30 dark:text-violet-100 dark:ring-violet-500/35";
+  }
+  return "bg-zinc-200/90 text-zinc-700 ring-zinc-400/40 dark:bg-zinc-800/80 dark:text-zinc-200 dark:ring-zinc-600/50";
+}
+
 export function NFTGrid({ nfts, rows, selectedKeys, onToggle, onToggleAll, providerHeaders }: Props) {
   const [copiedValue, setCopiedValue] = useState<string | null>(null);
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => new Set());
@@ -194,6 +201,14 @@ export function NFTGrid({ nfts, rows, selectedKeys, onToggle, onToggleAll, provi
                         >
                           {health}
                         </span>
+                        {storage !== "arweave" && row != null && row.everlandPinned !== null ? (
+                          <span
+                            title="4EVERLAND Pinning service (requires saved pin access token)"
+                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${everlandPinBadgeClass(row.everlandPinned)}`}
+                          >
+                            {row.everlandPinned ? "Pinned (4EVER)" : "Unpinned (4EVER)"}
+                          </span>
+                        ) : null}
                         <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
                           {expandedKeys.has(key) ? "Hide raw" : "Show raw"}
                         </span>

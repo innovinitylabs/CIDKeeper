@@ -243,12 +243,13 @@ export default function Home() {
       setBanner(null);
     }
     setPinMessage(null);
+    setPinSummary(null);
     setPhase("extract");
     setProgress(null);
     try {
       const res = await fetch("/api/extract", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...providerHeaders },
         body: JSON.stringify({ nfts: list }),
       });
       const data = await res.json().catch(() => ({}));
@@ -263,7 +264,7 @@ export default function Home() {
       setPhase("idle");
       setProgress(null);
     }
-  }, []);
+  }, [providerHeaders]);
 
   const fetchNfts = useCallback(async () => {
     setBanner(null);
@@ -404,24 +405,30 @@ export default function Home() {
         return;
       }
       const results = Array.isArray(data.results)
-        ? (data.results as { cid: string; success?: boolean; error?: string }[])
+        ? (data.results as { cid: string; success?: boolean; error?: string; skipped?: boolean }[])
         : [];
       const failed = results.filter((r) => !r.success).map((r) => r.cid);
       setLastPinFailedCids(failed);
       const ok = results.filter((r) => r.success).length;
       const total = results.length;
+      const skipped = results.filter((r) => r.skipped).length;
+      const posted = results.filter((r) => r.success && !r.skipped).length;
       setPinSummary(total ? { ok, total } : { ok: 0, total: 0 });
-      const headline =
-        total === 0
-          ? "No pin results returned from 4EVERLAND."
-          : ok === total
-            ? "Pinning complete via 4EVERLAND"
-            : ok === 0
-              ? "Pinning failed via 4EVERLAND"
-              : "Pinning finished via 4EVERLAND (partial success)";
+      let headline: string;
+      if (total === 0) headline = "No pin results returned from 4EVERLAND.";
+      else if (!results.every((r) => r.success)) {
+        headline = ok === 0 ? "Pinning failed via 4EVERLAND" : "Pinning finished via 4EVERLAND (partial success)";
+      } else if (skipped === total) {
+        headline = "No new pins needed — all selected CIDs already have an active pin at 4EVERLAND.";
+      } else if (skipped > 0) {
+        headline = "Pinning complete via 4EVERLAND (already-active CIDs were skipped).";
+      } else {
+        headline = "Pinning complete via 4EVERLAND";
+      }
       const lines: string[] = [headline];
-      if (total > 0) lines.push(`${ok}/${total} succeeded.`);
-      else lines.push("No CIDs were processed.");
+      if (total > 0) {
+        lines.push(`${ok}/${total} OK (${posted} new pin request(s), ${skipped} skipped as already pinned).`);
+      } else lines.push("No CIDs were processed.");
       const failures = results.filter((x) => !x.success);
       const maxFailLines = 20;
       for (const r of failures.slice(0, maxFailLines)) {

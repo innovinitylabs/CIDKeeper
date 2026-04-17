@@ -2,7 +2,7 @@
 
 Backup and preserve NFTs before they disappear. CIDKeeper scans an Ethereum wallet via Alchemy, checks IPFS gateway health for primary assets, supports ZIP export with a manifest, and optional **pinning of existing IPFS CIDs** through the [4EVERLAND](https://www.4everland.org/) IPFS [Pinning Service API](https://docs.4everland.org/storage/4ever-pin/pinning-services-api) at `https://api.4everland.dev/pins` (no re-upload; the same CID is submitted to their pin queue).
 
-**Note:** Pinning uses your **4EVERLAND pin access token** from [Pinning service](https://dashboard.4everland.org/bucket/pinning-service) (saved in the browser like Alchemy), or optionally `FOUR_EVERLAND_TOKEN` in `.env` on a server you control. ZIP export and CID checks work with Alchemy alone.
+**Note:** Pinning uses your **4EVERLAND pin access token** from [Pinning service](https://dashboard.4everland.org/bucket/pinning-service) (saved in the browser like Alchemy), or optionally `FOUR_EVERLAND_TOKEN` in `.env` on a server you control. Before each new pin, CIDKeeper calls the standard `GET /pins?cid=…` listing so CIDs that are already queued, pinning, or pinned are **not** posted again. During **Analyze CIDs**, the same check runs for each IPFS primary (not Arweave) when your 4EVERLAND pin token is sent with the request, so the grid can show **Pinned (4EVER)** / **Unpinned (4EVER)** next to gateway health. ZIP export and CID checks work with Alchemy alone.
 
 **Live site:** deploy as you prefer; the UI can save **your own** Alchemy API key (and 4EVERLAND token for pinning) in the browser so you are not limited by shared free-tier quotas.
 

@@ -1,18 +1,24 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { hasActivePinAtFourEverland, FOUR_EVERLAND_PINS_URL } from "@/lib/four-everland-pins";
 import { limitConcurrency5 } from "@/lib/ipfs";
 import { fourEverlandTokenFromRequest } from "@/lib/user-provider-keys";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-/** IPFS Pinning Service API base (4EVERLAND). See https://docs.4everland.org/storage/4ever-pin/pinning-services-api */
-const FOUR_EVERLAND_PINS_URL = "https://api.4everland.dev/pins";
 const MAX_ERROR_SNIPPET = 4000;
 
 const BodySchema = z.object({
   cids: z.array(z.string().min(3)).max(50),
 });
+
+type PinResultRow = {
+  cid: string;
+  success: boolean;
+  skipped?: boolean;
+  error?: string;
+};
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -52,8 +58,13 @@ function interpretPinStatusBody(text: string): { ok: true } | { ok: false; error
   }
 }
 
-async function pinCidWithRetry(cid: string, token: string): Promise<{ cid: string; success: boolean; error?: string }> {
+async function pinCidWithRetry(cid: string, token: string): Promise<PinResultRow> {
   try {
+    const already = await hasActivePinAtFourEverland(cid, token);
+    if (already) {
+      return { cid, success: true, skipped: true };
+    }
+
     let res = await pinCidOnce(cid, token);
     if (res.status === 429) {
       await sleep(500);
