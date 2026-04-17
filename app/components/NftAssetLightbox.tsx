@@ -78,6 +78,12 @@ export function NftAssetLightbox({ nft, row, previewUrl, displayTitle, health, p
   const closeRef = useRef<HTMLButtonElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const panRef = useRef(pan);
+  panRef.current = pan;
+  const dragRef = useRef<{ pointerId: number; startX: number; startY: number; origX: number; origY: number } | null>(
+    null,
+  );
 
   const description = pickMetadataDescription(nft.metadata);
   const traits = pickMetadataAttributes(nft.metadata);
@@ -106,7 +112,49 @@ export function NftAssetLightbox({ nft, row, previewUrl, displayTitle, health, p
     setScale((s) => Math.max(ZOOM_MIN, Math.round((s - ZOOM_STEP) * 100) / 100));
   }, []);
 
-  const zoomReset = useCallback(() => setScale(1), []);
+  const zoomReset = useCallback(() => {
+    setScale(1);
+    setPan({ x: 0, y: 0 });
+  }, []);
+
+  useEffect(() => {
+    if (scale <= 1) {
+      setPan({ x: 0, y: 0 });
+    }
+  }, [scale]);
+
+  const onPanPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (scale <= ZOOM_MIN) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const p = panRef.current;
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      origX: p.x,
+      origY: p.y,
+    };
+  }, [scale]);
+
+  const onPanPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current;
+    if (!d || e.pointerId !== d.pointerId) return;
+    setPan({
+      x: d.origX + (e.clientX - d.startX),
+      y: d.origY + (e.clientY - d.startY),
+    });
+  }, []);
+
+  const onPanPointerEnd = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current;
+    if (!d || e.pointerId !== d.pointerId) return;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+    dragRef.current = null;
+  }, []);
 
   useEffect(() => {
     const el = stageRef.current;
@@ -189,13 +237,28 @@ export function NftAssetLightbox({ nft, row, previewUrl, displayTitle, health, p
                 +
               </button>
               <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400">{Math.round(scale * 100)}%</span>
+              {scale > ZOOM_MIN ? (
+                <span className="text-[11px] text-zinc-500 dark:text-zinc-400">Drag image to pan</span>
+              ) : null}
             </div>
-            <div ref={stageRef} className="min-h-[40vh] flex-1 overflow-auto bg-zinc-100 dark:bg-zinc-950">
+            <div
+              ref={stageRef}
+              className="min-h-[40vh] flex-1 overflow-hidden bg-zinc-100 touch-none dark:bg-zinc-950"
+              style={scale > ZOOM_MIN ? { touchAction: "none" } : undefined}
+            >
               <div className="flex min-h-full min-w-full items-center justify-center p-4">
                 {previewUrl ? (
                   <div
-                    style={{ transform: `scale(${scale})`, transformOrigin: "center center" }}
-                    className="transition-transform duration-150 ease-out"
+                    title={scale > ZOOM_MIN ? "Drag to pan" : undefined}
+                    onPointerDown={onPanPointerDown}
+                    onPointerMove={onPanPointerMove}
+                    onPointerUp={onPanPointerEnd}
+                    onPointerCancel={onPanPointerEnd}
+                    style={{
+                      transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
+                      transformOrigin: "center center",
+                    }}
+                    className={`select-none transition-transform duration-150 ease-out ${scale > ZOOM_MIN ? "cursor-grab active:cursor-grabbing" : ""}`}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img

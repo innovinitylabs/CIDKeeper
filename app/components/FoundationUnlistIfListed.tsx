@@ -8,12 +8,20 @@ function useFoundationListed(
   contractAddress: string,
   tokenId: string,
   providerHeaders: Record<string, string>,
+  fetchEnabled: boolean,
 ): boolean | null {
   const [listed, setListed] = useState<boolean | null>(null);
   const alchemyKey = providerHeaders[HEADER_ALCHEMY_API_KEY]?.trim() ?? "";
 
   useEffect(() => {
     let cancelled = false;
+    if (!fetchEnabled) {
+      setListed(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     setListed(null);
 
     (async () => {
@@ -36,7 +44,7 @@ function useFoundationListed(
     return () => {
       cancelled = true;
     };
-  }, [alchemyKey, contractAddress, tokenId]);
+  }, [alchemyKey, contractAddress, tokenId, fetchEnabled]);
 
   return listed;
 }
@@ -53,11 +61,16 @@ export function FoundationUnlistIfListed({
   compact,
   className,
   providerHeaders,
+  listedOverride,
 }: HeadersProps & {
   compact?: boolean;
   className?: string;
+  /** When true or false, skips the per-item listing fetch (use with a bulk-resolved map). */
+  listedOverride?: boolean;
 }) {
-  const listed = useFoundationListed(contractAddress, tokenId, providerHeaders);
+  const fetchEnabled = typeof listedOverride !== "boolean";
+  const fromHook = useFoundationListed(contractAddress, tokenId, providerHeaders, fetchEnabled);
+  const listed = typeof listedOverride === "boolean" ? listedOverride : fromHook;
   if (listed !== true) return null;
 
   return (
@@ -66,7 +79,7 @@ export function FoundationUnlistIfListed({
 }
 
 export function FoundationMarketListingSection({ contractAddress, tokenId, providerHeaders }: HeadersProps) {
-  const listed = useFoundationListed(contractAddress, tokenId, providerHeaders);
+  const listed = useFoundationListed(contractAddress, tokenId, providerHeaders, true);
   if (listed !== true) return null;
 
   return (

@@ -1,10 +1,41 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FoundationUnlistIfListed } from "@/app/components/FoundationUnlistIfListed";
 import { NftAssetLightbox } from "@/app/components/NftAssetLightbox";
+import { createConcurrencyLimiter } from "@/lib/ipfs";
 import { detectPrimaryStorage, extractCidsFromNft, nftKey, previewUrlFromNft } from "@/lib/nft-cids";
+import { HEADER_ALCHEMY_API_KEY } from "@/lib/user-provider-keys";
 import type { ExtractedNftRow, NormalizedNft } from "@/types/nft";
+
+type StorageFilter = "all" | "ipfs" | "arweave" | "none";
+type PinFilter = "all" | "pinned" | "unpinned" | "pin_na";
+type ListingFilter = "all" | "listed" | "not_listed";
+type SortKey = "default" | "name_az" | "name_za" | "health_worst" | "health_best" | "token_asc" | "token_desc";
+
+function healthRank(h: ExtractedNftRow["health"]): number {
+  if (h === "dead") return 0;
+  if (h === "slow") return 1;
+  if (h === "alive") return 2;
+  return 3;
+}
+
+function rowHealth(nft: NormalizedNft, row: ExtractedNftRow | undefined): ExtractedNftRow["health"] {
+  const storage = detectPrimaryStorage(nft);
+  return row?.health ?? (storage === "arweave" ? "arweave" : "dead");
+}
+
+function compareTokenIds(a: string, b: string): number {
+  try {
+    const ba = BigInt(a);
+    const bb = BigInt(b);
+    if (ba < bb) return -1;
+    if (ba > bb) return 1;
+    return 0;
+  } catch {
+    return a.localeCompare(b, undefined, { numeric: true });
+  }
+}
 
 type Props = {
   nfts: NormalizedNft[];
@@ -33,11 +64,159 @@ export function NFTGrid({ nfts, rows, selectedKeys, onToggle, onToggleAll, provi
   const [copiedValue, setCopiedValue] = useState<string | null>(null);
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => new Set());
   const [lightboxKey, setLightboxKey] = useState<string | null>(null);
+  const [storageFilter, setStorageFilter] = useState<StorageFilter>("all");
+  const [healthFilter, setHealthFilter] = useState<ExtractedNftRow["health"] | "all">("all");
+  const [pinFilter, setPinFilter] = useState<PinFilter>("all");
+  const [listingFilter, setListingFilter] = useState<ListingFilter>("all");
+  const [sortKey, setSortKey] = useState<SortKey>("default");
+  const [foundationByKey, setFoundationByKey] = useState<Record<string, boolean> | null>(null);
+  const [foundationLoading, setFoundationLoading] = useState(false);
+  const [foundationError, setFoundationError] = useState<string | null>(null);
+  const foundationAbortRef = useRef<AbortController | null>(null);
+
   const rowByKey = new Map<string, ExtractedNftRow>();
   if (rows) for (const r of rows) rowByKey.set(r.key, r);
 
-  const keys = nfts.map((n) => nftKey(n));
+  const nftsSignature = useMemo(() => nfts.map((n) => nftKey(n)).join("\n"), [nfts]);
+
+  useEffect(() => {
+    foundationAbortRef.current?.abort();
+    foundationAbortRef.current = null;
+    setFoundationByKey(null);
+    setFoundationLoading(false);
+    setFoundationError(null);
+    setListingFilter("all");
+  }, [nftsSignature]);
+
+  useEffect(() => {
+    return () => {
+      foundationAbortRef.current?.abort();
+    };
+  }, []);
+
+  const resolveFoundationListings = useCallback(async () => {
+    const ak = providerHeaders[HEADER_ALCHEMY_API_KEY]?.trim() ?? "";
+    if (!ak) {
+      setFoundationError("Add an Alchemy API key (Your API keys) to resolve Foundation listings.");
+      return;
+    }
+    if (!nfts.length) return;
+    foundationAbortRef.current?.abort();
+    const ac = new AbortController();
+    foundationAbortRef.current = ac;
+    setFoundationError(null);
+    setFoundationLoading(true);
+    const limit = createConcurrencyLimiter(5);
+    const out: Record<string, boolean> = {};
+    try {
+      await Promise.all(
+        nfts.map((nft) =>
+          limit(async () => {
+            if (ac.signal.aborted) return;
+            const key = nftKey(nft);
+            const headers: Record<string, string> = { [HEADER_ALCHEMY_API_KEY]: ak };
+            const res = await fetch(
+              `/api/nft-foundation-listed?contract=${encodeURIComponent(nft.contractAddress.trim())}&tokenId=${encodeURIComponent(nft.tokenId.trim())}`,
+              { headers, cache: "no-store", signal: ac.signal },
+            );
+            const j = (await res.json().catch(() => ({}))) as { listed?: boolean };
+            if (ac.signal.aborted) return;
+            out[key] = Boolean(j.listed);
+          }),
+        ),
+      );
+      if (!ac.signal.aborted) {
+        setFoundationByKey(out);
+      }
+    } catch (e) {
+      if (!ac.signal.aborted) {
+        setFoundationError(e instanceof Error ? e.message : "Could not resolve Foundation listings.");
+      }
+    } finally {
+      if (!ac.signal.aborted) {
+        setFoundationLoading(false);
+      }
+    }
+  }, [nfts, providerHeaders]);
+
+  const visibleNfts = useMemo(() => {
+    let list = nfts.filter((nft) => {
+      const key = nftKey(nft);
+      const row = rowByKey.get(key);
+      const storage = detectPrimaryStorage(nft);
+      if (storageFilter === "ipfs" && storage !== "ipfs") return false;
+      if (storageFilter === "arweave" && storage !== "arweave") return false;
+      if (storageFilter === "none" && storage !== "none") return false;
+
+      const health = rowHealth(nft, row);
+      if (healthFilter !== "all" && health !== healthFilter) return false;
+
+      const pin = row?.everlandPinned ?? null;
+      if (pinFilter === "pinned" && pin !== true) return false;
+      if (pinFilter === "unpinned" && pin !== false) return false;
+      if (pinFilter === "pin_na" && pin !== null) return false;
+
+      if (listingFilter !== "all" && foundationByKey) {
+        const listed = Boolean(foundationByKey[key]);
+        if (listingFilter === "listed" && !listed) return false;
+        if (listingFilter === "not_listed" && listed) return false;
+      }
+
+      return true;
+    });
+
+    const titleFor = (nft: NormalizedNft) => {
+      const k = nftKey(nft);
+      return rowByKey.get(k)?.name ?? nft.name ?? "";
+    };
+
+    if (sortKey === "name_az") {
+      list = [...list].sort((a, b) => titleFor(a).localeCompare(titleFor(b), undefined, { sensitivity: "base" }));
+    } else if (sortKey === "name_za") {
+      list = [...list].sort((a, b) => titleFor(b).localeCompare(titleFor(a), undefined, { sensitivity: "base" }));
+    } else if (sortKey === "health_worst") {
+      list = [...list].sort(
+        (a, b) => healthRank(rowHealth(a, rowByKey.get(nftKey(a)))) - healthRank(rowHealth(b, rowByKey.get(nftKey(b)))),
+      );
+    } else if (sortKey === "health_best") {
+      list = [...list].sort(
+        (a, b) => healthRank(rowHealth(b, rowByKey.get(nftKey(b)))) - healthRank(rowHealth(a, rowByKey.get(nftKey(a)))),
+      );
+    } else if (sortKey === "token_asc") {
+      list = [...list].sort((a, b) => compareTokenIds(a.tokenId, b.tokenId));
+    } else if (sortKey === "token_desc") {
+      list = [...list].sort((a, b) => compareTokenIds(b.tokenId, a.tokenId));
+    }
+
+    return list;
+  }, [
+    nfts,
+    rows,
+    storageFilter,
+    healthFilter,
+    pinFilter,
+    listingFilter,
+    foundationByKey,
+    sortKey,
+  ]);
+
+  const keys = visibleNfts.map((n) => nftKey(n));
   const allSelected = keys.length > 0 && keys.every((k) => selectedKeys.has(k));
+
+  const filtersActive =
+    storageFilter !== "all" ||
+    healthFilter !== "all" ||
+    pinFilter !== "all" ||
+    listingFilter !== "all" ||
+    sortKey !== "default";
+
+  const clearFilters = useCallback(() => {
+    setStorageFilter("all");
+    setHealthFilter("all");
+    setPinFilter("all");
+    setListingFilter("all");
+    setSortKey("default");
+  }, []);
 
   async function copyValue(value: string) {
     if (!value || value === "—") return;
@@ -69,33 +248,144 @@ export function NFTGrid({ nfts, rows, selectedKeys, onToggle, onToggleAll, provi
     const row = rowByKey.get(k);
     const previewUrl = row?.previewUrl ?? previewUrlFromNft(nft, extractCidsFromNft(nft));
     const title = row?.name ?? nft.name ?? `Token ${nft.tokenId}`;
-    const storage = detectPrimaryStorage(nft);
-    const health = row?.health ?? (storage === "arweave" ? "arweave" : "dead");
+    const health = rowHealth(nft, row);
     return { nft, row, previewUrl, displayTitle: title, health };
   }, [lightboxKey, nfts, rows]);
 
   return (
     <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-      <div className="flex items-center justify-between gap-3 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
-        <div className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Collection</div>
-        <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
-          <input
-            type="checkbox"
-            checked={allSelected}
-            onChange={(e) => onToggleAll(keys, e.target.checked)}
-            className="rounded border-zinc-300 text-brand focus:ring-brand dark:border-zinc-600"
-          />
-          Select all
-        </label>
+      <div className="space-y-4 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Collection</div>
+            <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+              Showing {visibleNfts.length} of {nfts.length}
+              {filtersActive ? " (filters active)" : ""}
+            </p>
+          </div>
+          <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={(e) => onToggleAll(keys, e.target.checked)}
+              className="rounded border-zinc-300 text-brand focus:ring-brand dark:border-zinc-600"
+            />
+            Select all in view
+          </label>
+        </div>
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="flex min-w-[128px] flex-1 flex-col gap-1 text-xs text-zinc-600 dark:text-zinc-400">
+            <span className="font-medium text-zinc-700 dark:text-zinc-300">Storage</span>
+            <select
+              value={storageFilter}
+              onChange={(e) => setStorageFilter(e.target.value as StorageFilter)}
+              className="rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-900 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
+            >
+              <option value="all">All</option>
+              <option value="ipfs">IPFS primary</option>
+              <option value="arweave">Arweave primary</option>
+              <option value="none">No primary CID</option>
+            </select>
+          </label>
+          <label className="flex min-w-[128px] flex-1 flex-col gap-1 text-xs text-zinc-600 dark:text-zinc-400">
+            <span className="font-medium text-zinc-700 dark:text-zinc-300">Gateway health</span>
+            <select
+              value={healthFilter}
+              onChange={(e) => setHealthFilter(e.target.value as typeof healthFilter)}
+              className="rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-900 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
+            >
+              <option value="all">All</option>
+              <option value="alive">alive</option>
+              <option value="slow">slow</option>
+              <option value="dead">dead</option>
+              <option value="arweave">arweave</option>
+            </select>
+          </label>
+          <label className="flex min-w-[140px] flex-1 flex-col gap-1 text-xs text-zinc-600 dark:text-zinc-400">
+            <span className="font-medium text-zinc-700 dark:text-zinc-300">4EVER pin</span>
+            <select
+              value={pinFilter}
+              onChange={(e) => setPinFilter(e.target.value as PinFilter)}
+              className="rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-900 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
+            >
+              <option value="all">All</option>
+              <option value="pinned">Pinned</option>
+              <option value="unpinned">Unpinned</option>
+              <option value="pin_na">N/A (Arweave or unchecked)</option>
+            </select>
+          </label>
+          <label className="flex min-w-[160px] flex-1 flex-col gap-1 text-xs text-zinc-600 dark:text-zinc-400">
+            <span className="font-medium text-zinc-700 dark:text-zinc-300">Foundation listing</span>
+            <select
+              value={listingFilter}
+              onChange={(e) => setListingFilter(e.target.value as ListingFilter)}
+              className="rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-900 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
+            >
+              <option value="all">All</option>
+              <option value="listed" disabled={foundationByKey == null}>
+                Listed on Foundation
+              </option>
+              <option value="not_listed" disabled={foundationByKey == null}>
+                Not listed
+              </option>
+            </select>
+          </label>
+          <label className="flex min-w-[160px] flex-1 flex-col gap-1 text-xs text-zinc-600 dark:text-zinc-400">
+            <span className="font-medium text-zinc-700 dark:text-zinc-300">Sort</span>
+            <select
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as SortKey)}
+              className="rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-900 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
+            >
+              <option value="default">Wallet order</option>
+              <option value="name_az">Name A–Z</option>
+              <option value="name_za">Name Z–A</option>
+              <option value="health_worst">Health (worst first)</option>
+              <option value="health_best">Health (best first)</option>
+              <option value="token_asc">Token id (low to high)</option>
+              <option value="token_desc">Token id (high to low)</option>
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={() => void resolveFoundationListings()}
+            disabled={foundationLoading || nfts.length === 0}
+            className="shrink-0 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-800 shadow-sm hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+          >
+            {foundationLoading ? "Resolving listings…" : "Resolve Foundation listings"}
+          </button>
+          {filtersActive ? (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="shrink-0 rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              Clear filters
+            </button>
+          ) : null}
+        </div>
+        {foundationByKey == null ? (
+          <p className="text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+            Foundation filters stay disabled until you run Resolve Foundation listings (one Alchemy-backed check per NFT,
+            same as the per-row listing check).
+          </p>
+        ) : null}
+        {foundationError ? (
+          <p className="text-[11px] font-medium text-rose-600 dark:text-rose-400">{foundationError}</p>
+        ) : null}
       </div>
       <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-        {nfts.map((nft) => {
+        {visibleNfts.map((nft) => {
           const key = nftKey(nft);
           const row = rowByKey.get(key);
           const title = row?.name ?? nft.name ?? `Token ${nft.tokenId}`;
           const cid = row?.primaryCID ?? "—";
           const storage = detectPrimaryStorage(nft);
-          const health = row?.health ?? (storage === "arweave" ? "arweave" : "dead");
+          const health = rowHealth(nft, row);
+          const listedOverride =
+            foundationByKey != null && Object.prototype.hasOwnProperty.call(foundationByKey, key)
+              ? foundationByKey[key]
+              : undefined;
           const previewUrl = row?.previewUrl ?? previewUrlFromNft(nft, extractCidsFromNft(nft));
           const rawNft = JSON.stringify(nft, null, 2);
           const rawRow = row ? JSON.stringify(row, null, 2) : null;
@@ -219,6 +509,7 @@ export function NFTGrid({ nfts, rows, selectedKeys, onToggle, onToggleAll, provi
                         compact
                         className="flex flex-col items-end"
                         providerHeaders={providerHeaders}
+                        listedOverride={listedOverride}
                       />
                     </div>
                   </div>
