@@ -109,7 +109,7 @@ export function FoundationUnlistButton({ contractAddress, tokenId, compact, clas
     }
 
     const ok = window.confirm(
-      "Send one Ethereum mainnet transaction to the Foundation market contract to clear this listing? On-chain owner is the market escrow; your wallet will run its own simulation. You pay gas.",
+      "Submit one transaction on Ethereum mainnet to clear this Foundation listing? It goes to Foundation's market contract. Your wallet may show a simulation or estimate first. You pay the network fee (gas).",
     );
     if (!ok) return;
 
