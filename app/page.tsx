@@ -968,6 +968,23 @@ export default function Home() {
         ) : null}
 
         <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">How-to video</h2>
+          <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+            Walkthrough of using CIDKeeper on YouTube (wallet scan, CID checks, export, and pinning).
+          </p>
+          <div className="relative mt-4 aspect-video w-full max-w-4xl overflow-hidden rounded-xl border border-zinc-200 bg-zinc-950 shadow-sm dark:border-zinc-700">
+            <iframe
+              className="absolute inset-0 h-full w-full border-0"
+              src="https://www.youtube.com/embed/TB8Unf5Rufw?si=W30BkfDjl_-8nGou"
+              title="YouTube video player"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              referrerPolicy="strict-origin-when-cross-origin"
+              allowFullScreen
+            />
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">IPFS and NFT backup FAQ</h2>
           <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
             This page is focused on NFT backup, IPFS pinning, Foundation listing checks, and long-term marketplace asset
