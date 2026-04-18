@@ -91,6 +91,38 @@ const STRUCTURED_DATA = {
             text: "Yes. CIDKeeper can resolve whether NFTs are currently listed on Foundation marketplace and help you filter listed or unlisted items.",
           },
         },
+        {
+          "@type": "Question",
+          name: "Why do I need an Alchemy API key?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "It is optional. The hosted site can use a shared key, but shared free-tier quotas are limited. Your own Alchemy key gives you dedicated quota and a more reliable experience.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "Why do I need a 4EVERLAND pin access token?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "Only for pinning existing IPFS CIDs through 4EVERLAND from CIDKeeper. Pinning is optional and includes a generous free tier; account verification may require a small on-chain payment on a supported chain. Check 4EVERLAND for current limits and signup steps.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "Do I need API keys to unlist on Foundation?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "No. Unlisting uses public mainnet calls and your wallet transaction. Smart contracts remain usable without this site, but CIDKeeper makes the correct call path easier than manual explorer transactions.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "Can I bulk unlist?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "No. Foundation escrow-style listings make batch sends risky because stuck transactions can block later ones by nonce ordering. CIDKeeper intentionally supports one-at-a-time unlists to stay simple and predictable.",
+          },
+        },
       ],
     },
   ],

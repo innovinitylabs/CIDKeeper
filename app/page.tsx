@@ -47,6 +47,22 @@ const SEO_FAQ: ReadonlyArray<{ q: string; a: string }> = [
     q: "Does CIDKeeper work for Arweave NFTs too?",
     a: "CIDKeeper detects Arweave primaries and labels them clearly. IPFS gateway health and pinning apply to IPFS CIDs, while Arweave items can still be inspected in the same collection view.",
   },
+  {
+    q: "Why do I need an Alchemy API key?",
+    a: "You do not strictly need one. The hosted deployment can fall back on a shared key so you can try the app right away, but shared keys sit on small free-tier quotas, so you may hit rate limits or slower responses when traffic is high. Adding your own Alchemy key under Your API keys gives you your own quota and a steadier experience. You can rotate the key whenever you like.",
+  },
+  {
+    q: "Why do I need a 4EVERLAND pin access token?",
+    a: "Only if you want to pin existing IPFS CIDs through 4EVERLAND from CIDKeeper. Listing NFTs, analyzing CIDs, and ZIP export do not require it. 4EVERLAND offers a generous free tier for pinning (including multiple gigabytes on typical plans; check their dashboard for current limits). Account creation may ask for a one-time on-chain verification step, often paid in a small amount of native token on a supported chain such as Polygon or BNB Smart Chain, depending on their flow and network fees. After that, pinning within your tier can remain free. Always confirm the latest requirements and pricing on 4EVERLAND.",
+  },
+  {
+    q: "Do I need API keys to unlist on Foundation?",
+    a: "No. The Foundation unlist shortcut uses public Ethereum mainnet data plus a normal wallet transaction to clear a listing. It does not depend on Alchemy or 4EVERLAND. The smart contracts remain on-chain even if this site goes offline: in principle you could call the right function yourself through Etherscan or another block explorer, but finding the correct contract, selector, and calldata is slow and error-prone even for experienced users. CIDKeeper is there so you can unlist in a guided way with one clear flow after your wallet confirms the transaction.",
+  },
+  {
+    q: "Can I bulk unlist?",
+    a: "Not in this app. Foundation listings commonly use an escrow-style model: while listed, the token may sit in a Foundation-controlled contract rather than only relying on approvals you can revoke in bulk. A script could send many unlist transactions back to back, but that brings real operational risk: if one transaction hangs, later ones can pile up behind nonce ordering until you replace or cancel transactions manually, which means tuning gas, timing, and sometimes explorer-level intervention. CIDKeeper stays deliberately simple so artists can see how a single unlist works without juggling batch sends and nonce recovery. For several listings, unlist them one at a time here.",
+  },
 ];
 
 const ALCHEMY_API_KEY_GUIDE_STEPS: { caption: string; file: string }[] = [
@@ -501,27 +517,6 @@ export default function Home() {
             still accessible, and lets you download the original files exactly as stored on IPFS. Keep a local backup or re-pin
             them on your own terms.
           </p>
-          <div className="mt-5 max-w-2xl rounded-xl border border-zinc-200 bg-zinc-50/90 p-4 text-xs leading-relaxed text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-300">
-            <p className="font-medium text-zinc-900 dark:text-zinc-100">Open source on GitHub</p>
-            <p className="mt-2">
-              The public deployment uses shared provider quotas on free tiers. Please add{" "}
-              <span className="font-medium text-zinc-800 dark:text-zinc-200">your own Alchemy API key</span> (and a 4EVERLAND pin
-              token if you use pinning) under Your API keys so everyone gets a reliable experience. Prefer even more control?{" "}
-              <span className="font-medium text-zinc-800 dark:text-zinc-200">Clone the repo and run it locally</span> with your
-              keys in <span className="font-mono text-[11px]">.env</span>, or open issues and pull requests to improve CIDKeeper.
-            </p>
-            <a
-              href={GITHUB_REPO_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-3 inline-flex items-center gap-2 rounded-lg bg-zinc-900 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-            >
-              <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
-                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
-              </svg>
-              innovinitylabs / CIDKeeper on GitHub
-            </a>
-          </div>
         </div>
       </header>
 
@@ -892,6 +887,28 @@ export default function Home() {
               </details>
             ))}
           </div>
+        </section>
+
+        <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+          <p className="font-medium text-zinc-900 dark:text-zinc-100">Open source on GitHub</p>
+          <p className="mt-2 text-xs leading-relaxed text-zinc-700 dark:text-zinc-300">
+            The public deployment uses shared provider quotas on free tiers. Please add{" "}
+            <span className="font-medium text-zinc-800 dark:text-zinc-200">your own Alchemy API key</span> (and a 4EVERLAND pin
+            token if you use pinning) under Your API keys so everyone gets a reliable experience. Prefer even more control?{" "}
+            <span className="font-medium text-zinc-800 dark:text-zinc-200">Clone the repo and run it locally</span> with your keys
+            in <span className="font-mono text-[11px]">.env</span>, or open issues and pull requests to improve CIDKeeper.
+          </p>
+          <a
+            href={GITHUB_REPO_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-flex items-center gap-2 rounded-lg bg-zinc-900 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+          >
+            <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+            </svg>
+            innovinitylabs / CIDKeeper on GitHub
+          </a>
         </section>
       </main>
 
