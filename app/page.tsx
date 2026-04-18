@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { BrowserWalletBar } from "@/app/components/BrowserWalletBar";
 import { NFTGrid } from "@/app/components/NFTGrid";
 import { ProgressBar } from "@/app/components/ProgressBar";
@@ -28,9 +28,55 @@ const SUPPORT_ETH = "valipokkann.eth";
 const SUPPORT_TEZOS = "tz2VSTT36yEWHVBSLLk6dtvaUZax5qsMBg4M";
 const SUPPORT_EVM = "0x5e051c9106071baF1e4c087e3e06Fdd17396A433";
 
+const SUPPORT_MANIFOLD_URL = "https://manifold.xyz/@valipokkann/p/1234139865";
+const SUPPORT_OPENSEA_CREATED_URL = "https://opensea.io/VALIPOKKANN/created";
+const SUPPORT_VALIPOKKANN_X_URL = "https://x.com/VALIPOKKANN";
+
 const GITHUB_REPO_URL = "https://github.com/innovinitylabs/CIDKeeper";
 
-const SEO_FAQ: ReadonlyArray<{ q: string; a: string }> = [
+const IPFS_DOCS_CONTENT_ADDRESSING = "https://docs.ipfs.tech/concepts/content-addressing/";
+const IPFS_DOCS_CLI_INSTALL = "https://docs.ipfs.tech/install/command-line/";
+
+const FAQ_INLINE_LINK =
+  "font-medium text-brand underline decoration-brand/30 underline-offset-2 hover:text-brand-hover dark:text-brand-light dark:hover:text-white";
+
+type SeoFaqItem = { q: string; a: string | ReactNode };
+
+const SEO_FAQ: ReadonlyArray<SeoFaqItem> = [
+  {
+    q: "What are CIDs?",
+    a: (
+      <>
+        <p>
+          A <span className="font-medium text-zinc-800 dark:text-zinc-200">content identifier (CID)</span> is how IPFS names
+          content-addressed data. It is built from cryptographic hashes and metadata about how to interpret the data (via
+          multiformats such as multihash, multicodec, and multibase), not from a server hostname. The same file imported with the
+          same settings should yield the same CID, which is why tools can fetch or pin by CID without trusting a single host.
+        </p>
+        <p className="mt-2">
+          For a deeper technical walkthrough, read{" "}
+          <a href={IPFS_DOCS_CONTENT_ADDRESSING} target="_blank" rel="noopener noreferrer" className={FAQ_INLINE_LINK}>
+            Content identifiers (CIDs) and content addressing
+          </a>{" "}
+          in the official IPFS documentation.
+        </p>
+        <p className="mt-2">
+          You can also preserve NFT assets yourself by running an IPFS node and pinning the same CIDs CIDKeeper shows. Install
+          a full node (for example Kubo, the reference implementation behind the <code className="font-mono text-[11px]">ipfs</code>{" "}
+          CLI, or IPFS Desktop which bundles it), run <code className="font-mono text-[11px]">ipfs init</code> once, then start the
+          daemon with <code className="font-mono text-[11px]">ipfs daemon</code> (or launch Desktop). To keep an existing DAG
+          reachable from your disk, use{" "}
+          <code className="font-mono text-[11px]">{`ipfs pin add /ipfs/<your-cid>`}</code> (often with a recursive pin for large
+          trees). Your node then stores the blocks locally and can serve them to peers on
+          the network. Follow the{" "}
+          <a href={IPFS_DOCS_CLI_INSTALL} target="_blank" rel="noopener noreferrer" className={FAQ_INLINE_LINK}>
+            IPFS command-line install guide
+          </a>{" "}
+          and the docs on pinning and gateways for production hardening.
+        </p>
+      </>
+    ),
+  },
   {
     q: "How does CIDKeeper back up NFTs from IPFS?",
     a: "CIDKeeper loads wallet NFTs, extracts metadata and asset CIDs, checks gateway health, then exports exact bytes into a ZIP manifest so you keep an offline backup.",
@@ -689,64 +735,101 @@ export default function Home() {
                     <span>
                       <span className="font-medium text-zinc-800 dark:text-zinc-200">Include factory-created collections</span>
                       <span className="block text-xs text-zinc-500 dark:text-zinc-500">
-                        When on, scans the Foundation factory contracts below (plus any you add) for txs you sent and adds those
-                        collection contracts when logs match Foundation collection-created events.
+                        When on, scans the Foundation factory contracts in the collapsible panel (plus any you add) for txs you
+                        sent and adds those collection contracts when logs match Foundation collection-created events.
                       </span>
                     </span>
                   </label>
-                  <div className="rounded-lg border border-zinc-200 bg-zinc-50/90 p-3 text-xs dark:border-zinc-700 dark:bg-zinc-900/50">
-                    <p className="font-medium text-zinc-800 dark:text-zinc-200">Built-in Foundation factory contracts</p>
-                    <ul className="mt-2 space-y-1 font-mono text-[11px] leading-relaxed text-zinc-700 dark:text-zinc-300">
-                      {FOUNDATION_FACTORIES.map((addr) => (
-                        <li key={addr}>{addr}</li>
-                      ))}
-                    </ul>
-                    <p className="mt-3 font-medium text-zinc-800 dark:text-zinc-200">Additional factory addresses</p>
-                    <p className="mt-1 text-zinc-600 dark:text-zinc-400">
-                      Add other collection-factory contracts that emit the same indexed event layout. Stored only in this browser
-                      (localStorage), up to {MAX_EXTRA_FOUNDATION_FACTORIES} addresses. Used when the option above is enabled.
-                    </p>
-                    <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
-                      <input
-                        type="text"
-                        value={factoryAddressInput}
-                        onChange={(e) => setFactoryAddressInput(e.target.value)}
-                        disabled={busy}
-                        placeholder="0x… factory contract"
-                        className="min-w-0 flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-2 font-mono text-[11px] text-zinc-900 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
-                      />
-                      <button
-                        type="button"
-                        onClick={addExtraFactory}
-                        disabled={busy}
-                        className="shrink-0 rounded-lg bg-zinc-900 px-3 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                  <details className="group rounded-lg border border-zinc-200 bg-zinc-50/90 text-xs dark:border-zinc-700 dark:bg-zinc-900/50">
+                    <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 font-medium text-zinc-800 select-none dark:text-zinc-200 [&::-webkit-details-marker]:hidden">
+                      <svg
+                        className="h-4 w-4 shrink-0 text-zinc-500 transition-transform duration-200 group-open:rotate-90 dark:text-zinc-400"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        aria-hidden
                       >
-                        Add factory
-                      </button>
-                    </div>
-                    {extraFoundationFactories.length > 0 ? (
-                      <ul className="mt-3 space-y-1.5">
-                        {extraFoundationFactories.map((addr) => (
-                          <li
-                            key={addr}
-                            className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-zinc-200 bg-white px-2 py-1.5 font-mono text-[11px] text-zinc-800 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-200"
+                        <path
+                          fillRule="evenodd"
+                          d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      <span>Foundation factory contracts (built-in list and extra addresses)</span>
+                    </summary>
+                    <div className="space-y-3 border-t border-zinc-200 px-3 pb-3 pt-2 dark:border-zinc-700">
+                      <p className="leading-relaxed text-zinc-600 dark:text-zinc-400">
+                        CIDKeeper already includes the main Foundation factory contracts and indexed events, which cover almost
+                        all typical mint paths. The extra address list is entirely optional—use it only if you hit a rare factory
+                        or event variant that is not represented here, for example when some of your minted Foundation works are
+                        missing from the Created inventory. In that case, contact{" "}
+                        <a
+                          href="https://x.com/VALIPOKKANN"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-brand underline decoration-brand/30 underline-offset-2 hover:text-brand-hover dark:text-brand-light dark:hover:text-white"
+                        >
+                          Valipokkann on X (Twitter)
+                        </a>{" "}
+                        with the collection contract and what you expected to see.
+                      </p>
+                      <div>
+                        <p className="font-medium text-zinc-800 dark:text-zinc-200">Built-in Foundation factory contracts</p>
+                        <ul className="mt-2 space-y-1 font-mono text-[11px] leading-relaxed text-zinc-700 dark:text-zinc-300">
+                          {FOUNDATION_FACTORIES.map((addr) => (
+                            <li key={addr}>{addr}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div>
+                        <p className="font-medium text-zinc-800 dark:text-zinc-200">Additional factory addresses</p>
+                        <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+                          Add other collection-factory contracts that emit the same indexed event layout only when you need a
+                          missing factory (see note above). Stored only in this browser (localStorage), up to{" "}
+                          {MAX_EXTRA_FOUNDATION_FACTORIES} addresses. Used when Include factory-created collections is enabled.
+                        </p>
+                        <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                          <input
+                            type="text"
+                            value={factoryAddressInput}
+                            onChange={(e) => setFactoryAddressInput(e.target.value)}
+                            disabled={busy}
+                            placeholder="0x… factory contract"
+                            className="min-w-0 flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-2 font-mono text-[11px] text-zinc-900 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
+                          />
+                          <button
+                            type="button"
+                            onClick={addExtraFactory}
+                            disabled={busy}
+                            className="shrink-0 rounded-lg bg-zinc-900 px-3 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
                           >
-                            <span className="min-w-0 break-all">{addr}</span>
-                            <button
-                              type="button"
-                              onClick={() => removeExtraFactory(addr)}
-                              disabled={busy}
-                              className="shrink-0 rounded px-2 py-0.5 text-[11px] font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-950/40"
-                            >
-                              Remove
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="mt-2 text-zinc-500 dark:text-zinc-500">No extra factories saved yet.</p>
-                    )}
-                  </div>
+                            Add factory
+                          </button>
+                        </div>
+                        {extraFoundationFactories.length > 0 ? (
+                          <ul className="mt-3 space-y-1.5">
+                            {extraFoundationFactories.map((addr) => (
+                              <li
+                                key={addr}
+                                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-zinc-200 bg-white px-2 py-1.5 font-mono text-[11px] text-zinc-800 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-200"
+                              >
+                                <span className="min-w-0 break-all">{addr}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => removeExtraFactory(addr)}
+                                  disabled={busy}
+                                  className="shrink-0 rounded px-2 py-0.5 text-[11px] font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-950/40"
+                                >
+                                  Remove
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="mt-2 text-zinc-500 dark:text-zinc-500">No extra factories saved yet.</p>
+                        )}
+                      </div>
+                    </div>
+                  </details>
                 </div>
               ) : null}
               <label className="flex cursor-pointer items-start gap-2 text-zinc-600 dark:text-zinc-400">
@@ -900,7 +983,9 @@ export default function Home() {
                 <summary className="cursor-pointer text-sm font-semibold text-zinc-800 select-none dark:text-zinc-200">
                   {item.q}
                 </summary>
-                <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">{item.a}</p>
+                <div className="mt-2 space-y-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+                  {typeof item.a === "string" ? <p>{item.a}</p> : item.a}
+                </div>
               </details>
             ))}
           </div>
@@ -1028,10 +1113,57 @@ export default function Home() {
               </button>
             </div>
             <p className="mt-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
-              If this tool saved you time, a donation helps cover hosting and the next artwork. Send any amount to one of the
-              addresses below and thank you for using CIDKeeper.
+              If this tool saved you time, you can support the project by collecting work you like (see below), or send a
+              donation to one of the addresses at the end of this list. Thank you for using CIDKeeper.
             </p>
             <div className="mt-5 space-y-4">
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50/80 p-3 dark:border-zinc-700 dark:bg-zinc-900/40">
+                <div className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                  Support by buying art
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
+                  Another way to help is to buy artwork you enjoy. Sales go directly through the marketplace and help fund new
+                  pieces and hosting.
+                </p>
+                <p className="mt-2 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
+                  Foundation has closed, so there is temporarily no Foundation storefront to buy from. If you are looking for
+                  available work or commissions, contact{" "}
+                  <a
+                    href={SUPPORT_VALIPOKKANN_X_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={SUPPORT_VALIPOKKANN_X_URL}
+                    className="font-medium text-brand underline decoration-brand/30 underline-offset-2 hover:text-brand-hover dark:text-brand-light dark:hover:text-white"
+                  >
+                    Valipokkann on X (Twitter)
+                  </a>
+                  .
+                </p>
+                <ul className="mt-3 space-y-2 text-sm">
+                  <li>
+                    <a
+                      href={SUPPORT_MANIFOLD_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={SUPPORT_MANIFOLD_URL}
+                      className="font-medium text-brand underline decoration-brand/30 underline-offset-2 hover:text-brand-hover dark:text-brand-light dark:hover:text-white"
+                    >
+                      Manifold — Valipokkann
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href={SUPPORT_OPENSEA_CREATED_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={SUPPORT_OPENSEA_CREATED_URL}
+                      className="font-medium text-brand underline decoration-brand/30 underline-offset-2 hover:text-brand-hover dark:text-brand-light dark:hover:text-white"
+                    >
+                      OpenSea — Created
+                    </a>
+                  </li>
+                </ul>
+              </div>
               <div>
                 <div className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Bitcoin</div>
                 <div className="mt-1 flex flex-wrap items-center gap-2">

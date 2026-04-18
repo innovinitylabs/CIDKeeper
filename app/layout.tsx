@@ -69,6 +69,14 @@ const STRUCTURED_DATA = {
       mainEntity: [
         {
           "@type": "Question",
+          name: "What are CIDs?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "A content identifier (CID) is how IPFS labels content-addressed data using cryptographic hashes and multiformats, not a server hostname. See the IPFS documentation on content addressing for details. You can run your own IPFS node (for example Kubo or IPFS Desktop), start the daemon, and use ipfs pin add with the /ipfs/ path for your CID to retain DAG blocks locally and serve peers.",
+          },
+        },
+        {
+          "@type": "Question",
           name: "How do I back up NFT files from IPFS?",
           acceptedAnswer: {
             "@type": "Answer",
@@ -181,10 +189,11 @@ export const metadata: Metadata = {
       "Scan your wallet, check NFT asset health, export exact bytes, and pin existing CIDs through 4EVERLAND.",
     images: [
       {
-        url: "/opengraph-image",
-        width: 1200,
-        height: 630,
-        alt: "CIDKeeper — Backup and preserve your NFTs",
+        url: "/squirrel.png",
+        width: 1536,
+        height: 1024,
+        type: "image/png",
+        alt: "CIDKeeper",
       },
     ],
   },
@@ -192,7 +201,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: SITE_TITLE,
     description: "Scan wallet NFTs, verify IPFS health, export backups, and pin existing CIDs via 4EVERLAND.",
-    images: ["/opengraph-image"],
+    images: ["/squirrel.png"],
   },
   icons: {
     icon: [{ url: "/valipokkann.svg", type: "image/svg+xml" }],
