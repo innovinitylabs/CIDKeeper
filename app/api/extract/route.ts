@@ -65,7 +65,8 @@ export async function POST(req: Request) {
     if (fourToken) {
       const cidsToProbe = new Set<string>();
       for (const nft of nfts) {
-        if (detectPrimaryStorage(nft) === "arweave") continue;
+        const storage = detectPrimaryStorage(nft);
+        if (storage === "arweave" || storage === "https") continue;
         const cids = extractCidsFromNft(nft);
         const primary = pickPrimaryExport(cids);
         if (primary.cid) cidsToProbe.add(primary.cid);
@@ -86,6 +87,27 @@ export async function POST(req: Request) {
       const primary = pickPrimaryExport(cids);
       const errors: string[] = [];
       const primaryCID = primary.cid;
+
+      if (storage === "https") {
+        errors.push("primary_asset_https_hosted");
+        return {
+          key: nftKey(nft),
+          contractAddress: nft.contractAddress,
+          tokenId: nft.tokenId,
+          name: nft.name,
+          metadataCID: cids.metadataCID,
+          imageCID: cids.imageCID,
+          animationCID: cids.animationCID,
+          previewUrl: previewUrlFromNft(nft, cids),
+          primaryCID: null,
+          primaryLabel: null,
+          health: "hosted",
+          healthMs: null,
+          everlandPinned: null,
+          errors,
+        };
+      }
+
       const healthResult = primaryCID ? healthByCid.get(primaryCID) : undefined;
       const health = primaryCID ? (healthResult?.status ?? "dead") : storage === "arweave" ? "arweave" : "dead";
       const healthMs = healthResult?.ms ?? null;

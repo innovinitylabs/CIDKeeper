@@ -1,7 +1,7 @@
 /** NFT list mode for /api/nfts and exports */
 export type NftListScope = "created" | "owned";
 
-export type HealthStatus = "alive" | "slow" | "arweave" | "dead";
+export type HealthStatus = "alive" | "slow" | "arweave" | "dead" | "hosted";
 
 export type ExportSource = "image" | "metadata" | "animation";
 

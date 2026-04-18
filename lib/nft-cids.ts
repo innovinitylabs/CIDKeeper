@@ -18,6 +18,12 @@ function isArweaveUrl(value: string | null | unknown): boolean {
   return v.startsWith("ar://") || v.includes("arweave.net/");
 }
 
+function isHttpOrHttpsUrl(value: string | null | undefined): boolean {
+  if (value == null || typeof value !== "string") return false;
+  const t = value.trim().toLowerCase();
+  return t.startsWith("http://") || t.startsWith("https://");
+}
+
 export type ExtractedCids = {
   metadataCID: string | null;
   imageCID: string | null;
@@ -41,16 +47,25 @@ export function extractCidsFromNft(nft: NormalizedNft): ExtractedCids {
   };
 }
 
-export function detectPrimaryStorage(nft: NormalizedNft): "ipfs" | "arweave" | "none" {
+export function detectPrimaryStorage(nft: NormalizedNft): "ipfs" | "arweave" | "https" | "none" {
   const cids = extractCidsFromNft(nft);
   if (cids.imageCID || cids.metadataCID || cids.animationCID) return "ipfs";
 
   const meta = nft.metadata;
-  const imageRaw = meta ? pickUriString(meta.image) : null;
+  const imageRaw = meta
+    ? pickUriString(meta.image) ?? pickUriString(meta.image_url ?? meta.imageUrl)
+    : null;
   const animationRaw = meta ? pickUriString(meta.animation_url ?? meta.animationUrl) : null;
+  const tokenUriStr = pickUriString(nft.tokenURI);
 
   if (isArweaveUrl(nft.tokenURI) || isArweaveUrl(imageRaw) || isArweaveUrl(animationRaw)) {
     return "arweave";
+  }
+
+  for (const u of [imageRaw, animationRaw, tokenUriStr]) {
+    if (!u || !isHttpOrHttpsUrl(u)) continue;
+    if (extractCID(u)) continue;
+    return "https";
   }
 
   return "none";

@@ -38,6 +38,25 @@ test("detectPrimaryStorage prefers ipfs when an IPFS CID exists", () => {
   assert.equal(detectPrimaryStorage(nft), "ipfs");
 });
 
+test("detectPrimaryStorage reports https for third-party image URLs without IPFS CID", () => {
+  const nft: NormalizedNft = {
+    contractAddress: "0xabc0000000000000000000000000000000000001",
+    tokenId: "8",
+    tokenURI: null,
+    metadata: {
+      image: "https://cdn.example.com/nft/42.png",
+    },
+    name: "Hosted NFT",
+  };
+
+  assert.deepEqual(extractCidsFromNft(nft), {
+    metadataCID: null,
+    imageCID: null,
+    animationCID: null,
+  });
+  assert.equal(detectPrimaryStorage(nft), "https");
+});
+
 test("previewUrlFromNft uses metadata image http url when no IPFS CID exists", () => {
   const nft: NormalizedNft = {
     contractAddress: "0xabc0000000000000000000000000000000000001",

@@ -6,7 +6,7 @@ CIDKeeper is an open-source web app to back up and preserve NFT assets before th
 - Scans wallet NFTs (created or owned scope).
 - Extracts metadata, image, and animation IPFS CIDs.
 - Detects primary storage (IPFS, Arweave, or none).
-- Checks IPFS gateway health (alive, slow, dead).
+- Checks IPFS gateway health (alive, slow, dead) and labels third-party HTTPS hosts as hosted when there is no IPFS CID to probe.
 - Exports exact bytes into ZIP with manifest.
 - Pins existing IPFS CIDs via 4EVERLAND pinning API.
 - Resolves Foundation marketplace listing status.

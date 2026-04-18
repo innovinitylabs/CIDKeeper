@@ -11,6 +11,9 @@ function lightboxBadgeClass(health: ExtractedNftRow["health"]) {
   if (health === "alive") return "bg-emerald-500/15 text-emerald-800 ring-emerald-500/30 dark:text-emerald-200 dark:ring-emerald-500/35";
   if (health === "slow") return "bg-amber-500/15 text-amber-900 ring-amber-500/30 dark:text-amber-100";
   if (health === "arweave") return "bg-sky-500/15 text-sky-900 ring-sky-500/30 dark:text-sky-100";
+  if (health === "hosted") {
+    return "bg-indigo-500/15 text-indigo-900 ring-indigo-500/30 dark:text-indigo-100 dark:ring-indigo-500/35";
+  }
   return "bg-rose-500/15 text-rose-900 ring-rose-500/30 dark:text-rose-100";
 }
 
@@ -281,11 +284,16 @@ export function NftAssetLightbox({ nft, row, previewUrl, displayTitle, health, p
             <div className="space-y-4 p-4 text-sm text-zinc-700 dark:text-zinc-300">
               <div className="flex flex-wrap items-center gap-2">
                 <span
+                  title={
+                    health === "hosted"
+                      ? "Primary asset is served from a third-party HTTPS URL, not an IPFS CID checked on public gateways."
+                      : undefined
+                  }
                   className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${lightboxBadgeClass(health)}`}
                 >
                   {health}
                 </span>
-                {row && primaryStorage !== "arweave" && row.everlandPinned !== null ? (
+                {row && primaryStorage === "ipfs" && row.everlandPinned !== null ? (
                   <span
                     title="4EVERLAND Pinning service"
                     className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${everlandPinBadgeClass(row.everlandPinned)}`}
@@ -378,7 +386,7 @@ export function NftAssetLightbox({ nft, row, previewUrl, displayTitle, health, p
                         <dd className="text-zinc-900 dark:text-zinc-100">{row.healthMs} ms</dd>
                       </>
                     ) : null}
-                    {row.everlandPinned !== null ? (
+                    {row.everlandPinned !== null && primaryStorage === "ipfs" ? (
                       <>
                         <dt className="text-zinc-500 dark:text-zinc-400">4EVERLAND pin</dt>
                         <dd className="text-zinc-900 dark:text-zinc-100">
