@@ -6,6 +6,14 @@ Backup and preserve NFTs before they disappear. CIDKeeper scans an Ethereum wall
 
 **Live site:** deploy as you prefer; the UI can save **your own** Alchemy API key (and 4EVERLAND token for pinning) in the browser so you are not limited by shared free-tier quotas.
 
+## How-to video
+
+Walkthrough on YouTube: wallet scan, CID analysis, ZIP export, and pinning.
+
+[![CIDKeeper how-to — play on YouTube](https://img.youtube.com/vi/TB8Unf5Rufw/hqdefault.jpg)](https://www.youtube.com/watch?v=TB8Unf5Rufw)
+
+- **Watch:** [youtube.com/watch?v=TB8Unf5Rufw](https://www.youtube.com/watch?v=TB8Unf5Rufw) (same video as on the site’s home page embed)
+
 ## Open source
 
 Source and issues: [github.com/innovinitylabs/CIDKeeper](https://github.com/innovinitylabs/CIDKeeper). Contributions (bug reports, docs, pull requests) are welcome.
