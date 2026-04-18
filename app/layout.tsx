@@ -123,6 +123,14 @@ const STRUCTURED_DATA = {
             text: "No. Foundation escrow-style listings make batch sends risky because stuck transactions can block later ones by nonce ordering. CIDKeeper intentionally supports one-at-a-time unlists to stay simple and predictable.",
           },
         },
+        {
+          "@type": "Question",
+          name: "Do I need to connect my wallet?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "No. Wallet connection is optional for browsing, analysis, export, and pinning. It is only required to unlist Foundation works because that requires sending an on-chain transaction from your wallet.",
+          },
+        },
       ],
     },
   ],

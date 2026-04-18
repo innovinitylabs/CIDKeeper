@@ -63,6 +63,10 @@ const SEO_FAQ: ReadonlyArray<{ q: string; a: string }> = [
     q: "Can I bulk unlist?",
     a: "Not in this app. Foundation listings commonly use an escrow-style model: while listed, the token may sit in a Foundation-controlled contract rather than only relying on approvals you can revoke in bulk. A script could send many unlist transactions back to back, but that brings real operational risk: if one transaction hangs, later ones can pile up behind nonce ordering until you replace or cancel transactions manually, which means tuning gas, timing, and sometimes explorer-level intervention. CIDKeeper stays deliberately simple so artists can see how a single unlist works without juggling batch sends and nonce recovery. For several listings, unlist them one at a time here.",
   },
+  {
+    q: "Do I need to connect my wallet?",
+    a: "No. Connecting a wallet is optional and does not change listing, analysis, export, or pinning. You only need a wallet connection when you want to unlist Foundation works, because that flow must send an on-chain transaction from your account.",
+  },
 ];
 
 const ALCHEMY_API_KEY_GUIDE_STEPS: { caption: string; file: string }[] = [
@@ -475,6 +479,19 @@ export default function Home() {
         lines.push(`...and ${failures.length - maxFailLines} more failures`);
       }
       setPinMessage(lines.join("\n"));
+
+      const successCids = new Set(results.filter((r) => r.success).map((r) => r.cid));
+      if (successCids.size > 0) {
+        setRows((prev) => {
+          if (!prev) return prev;
+          return prev.map((row) => {
+            const cid = row.primaryCID;
+            if (!cid || !successCids.has(cid)) return row;
+            if (row.everlandPinned === true) return row;
+            return { ...row, everlandPinned: true };
+          });
+        });
+      }
     } catch {
       setBanner("Network error while pinning.");
     } finally {
